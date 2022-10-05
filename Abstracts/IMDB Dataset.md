@@ -1,4 +1,4 @@
-# Movies, Data, and Chaos: Journey of IMDB ratings through COVID by  Shikha, Abhishek and Chirage
+# Movies, Data, and Chaos: Journey of IMDB ratings through COVID by  Shikha, Abhishek and Chirag
 
 ### **About Project:**
 
