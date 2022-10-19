@@ -1,0 +1,76 @@
+---
+title: "Demystifying Components of Riding Hailing"
+author: "Chirag Lakhanpal, Shikha Sharma, Abhishek Pradhan"
+# date: "today"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    code_folding: hide
+    number_sections: false
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+
+```{r init, include=FALSE}
+# some of common options (and the defaults) are: 
+# include=T, eval=T, echo=T, results='hide'/'asis'/'markup',..., collapse=F, warning=T, message=T, error=T, cache=T, fig.width=6, fig.height=4, fig.dim=c(6,4) #inches, fig.align='left'/'center','right', 
+
+library(ezids)
+library(arrow)
+library(knitr)
+# knitr::opts_chunk$set(warning = F, results = "markup", message = F)
+knitr::opts_chunk$set(warning = F, results = "hide", message = F)
+options(scientific=T, digits = 3) 
+# options(scipen=9, digits = 3) 
+# ‘scipen’: integer. A penalty to be applied when deciding to print numeric values in fixed or exponential notation.  Positive values bias towards fixed and negative towards scientific notation: fixed notation will be preferred unless it is more than ‘scipen’ digits wider.
+# use scipen=999 to prevent scientific notation at all times
+```
+
+## 1 Exordium
+
+
+## 2 Data Preparation
+
+### 2.2 Gather Data
+
+```{r, echo=FALSE}
+
+# Installing necessary packages 
+
+# Arrow package for dealing with parquet data files
+install.packages("arrow")
+# ezids package for presentation 
+install.packages("ezids")
+
+# Loading main data for New York yellow taxi trips
+raw_data <- data.frame(read_parquet('Data\\yellow_tripdata_2022-06.parquet'))
+# Loading main data for Zone information
+zone_lookup <- data.frame(read.csv('Data\\Taxi_Zone_Lookup.csv'))
+
+data_des <- data.frame(read.csv('Data\\Data_Definitions.csv'))
+
+str(data_des)
+```
+
+### 2.2 Data Descriptors
+
+
+
+```{r, results='markup'}
+kable(str(raw_data))
+kable(str(zone_lookup))
+```
+
+## 3 Explanatory Data Analysis
+## 4 Conclusion
+
+
+
+
+
+
