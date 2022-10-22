@@ -17,12 +17,12 @@ output:
 
 
 ```{r init, include=FALSE}
-# some of common options (and the defaults) are: 
-# include=T, eval=T, echo=T, results='hide'/'asis'/'markup',..., collapse=F, warning=T, message=T, error=T, cache=T, fig.width=6, fig.height=4, fig.dim=c(6,4) #inches, fig.align='left'/'center','right', 
+# Installing necessary packages 
 
-library(ezids)
 library(arrow)
+library(ezids)
 library(knitr)
+library(dplyr)
 # knitr::opts_chunk$set(warning = F, results = "markup", message = F)
 knitr::opts_chunk$set(warning = F, results = "hide", message = F)
 options(scientific=T, digits = 3) 
@@ -36,37 +36,114 @@ options(scientific=T, digits = 3)
 
 ## 2 Data Preparation
 
-### 2.2 Gather Data
+### 2.1 Gather Data
 
-```{r, echo=FALSE}
-
-# Installing necessary packages 
-
-# Arrow package for dealing with parquet data files
-install.packages("arrow")
-# ezids package for presentation 
-install.packages("ezids")
+```{r Reading Data, results='markup'}
 
 # Loading main data for New York yellow taxi trips
-raw_data <- data.frame(read_parquet('Data\\yellow_tripdata_2022-06.parquet'))
+raw_data <- data.frame(read_parquet('../RawData/yellow_tripdata_2022-06.parquet'))
+
 # Loading main data for Zone information
-zone_lookup <- data.frame(read.csv('Data\\Taxi_Zone_Lookup.csv'))
+zone_lookup <- data.frame(read.csv("../Data/Taxi_Zone_Lookup.csv"))
 
-data_des <- data.frame(read.csv('Data\\Data_Definitions.csv'))
+data_des <- data.frame(read.csv('../Data/Data_Definitions.csv'))
 
-str(data_des)
+kable(head(raw_data),align = 'l')
+
 ```
+
 
 ### 2.2 Data Descriptors
 
-
-
 ```{r, results='markup'}
-kable(str(raw_data))
-kable(str(zone_lookup))
+kable(head(data_des),align = 'l')
 ```
 
+```{r, results='markup'}
+kable(head(zone_lookup),align = 'l')
+```
+
+### 2.3 Data Statistics
+
+```{r Checking Data types, results='markup'}
+
+# More dive into data
+
+str(raw_data)
+str(zone_lookup)
+
+kable(sapply(raw_data, typeof))
+
+```
+
+### 2.4 Data Manipulation
+
+```{r Removing excess columns}
+
+head(raw_data)
+
+drop <- c("store_and_fwd_flag", "extra", "mta_tax","improvement_surcharge","congestion_surcharge","airport_fee","total_amount")
+
+raw_data <- raw_data[,!(colnames(raw_data) %in% drop)]
+```
+
+```{r Renaming columns}
+colnames(raw_data)[2] <- 'pickup_time'
+colnames(raw_data)[3] <- 'dropoff_time'
+colnames(raw_data)[7] <- 'PULocation'
+colnames(raw_data)[8] <- 'DOLocation'
+```
+
+```{r Summary for Raw Data, results='markup'}
+xkablesummary(raw_data,bso = 'bordered')
+```
+
+#### 2.4.1 Looking up values
+
+```{r D}
+
+# Looking up Zone for Zone IDs 
+
+raw_data <- inner_join(raw_data,zone_lookup,by=c('PULocation' = 'LocationID'))
+
+# Dropping irrelevant column added from above join
+
+drop <- c('Zone','service_zone','PULocation')
+raw_data <- raw_data[,!(colnames(raw_data) %in% drop)]
+colnames(raw_data)[12] <- 'PULocation'
+
+# Performing above exercise for drop off location
+
+raw_data <- inner_join(raw_data,zone_lookup,by=c('DOLocation' = 'LocationID'))
+drop <- c('Zone','service_zone','DOLocation')
+raw_data <- raw_data[,!(colnames(raw_data) %in% drop)]
+colnames(raw_data)[12] <- 'DOLocation'
+
+```
+
+#### 2.4.2 Adding calculated column of interest
+
+```{r tip percentage}
+
+# Adding tip percentage
+
+raw_data['tip_perc'] <- c(round((raw_data['tip_amount']/raw_data['fare_amount'])*100,0))
+
+# Adding trip duration
+
+raw_data['trip_duration'] <- raw_data['dropoff_time'] - raw_data['pickup_time'] / 60
+
+difftime(ymd_hms(raw_data['dropoff_time']) - ymd_hms(raw_data['pickup_time']), units = 'mins')
+
+head(raw_data,n = 10)
+
+```
+
+
 ## 3 Explanatory Data Analysis
+
+
+
 ## 4 Conclusion
 
 
