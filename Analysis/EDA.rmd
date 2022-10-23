@@ -15,7 +15,6 @@ output:
     toc_depth: '3'
 ---
 
-
 ```{r init, include=FALSE}
 # Installing necessary packages 
 
@@ -23,12 +22,16 @@ library(arrow)
 library(ezids)
 library(knitr)
 library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(reshape2)
 # knitr::opts_chunk$set(warning = F, results = "markup", message = F)
 knitr::opts_chunk$set(warning = F, results = "hide", message = F)
 options(scientific=T, digits = 3) 
 # options(scipen=9, digits = 3) 
 # ‘scipen’: integer. A penalty to be applied when deciding to print numeric values in fixed or exponential notation.  Positive values bias towards fixed and negative towards scientific notation: fixed notation will be preferred unless it is more than ‘scipen’ digits wider.
 # use scipen=999 to prevent scientific notation at all times
+options(scipen=999)
 ```
 
 ## 1 Exordium
@@ -67,7 +70,7 @@ kable(head(zone_lookup),align = 'l')
 
 ```{r Checking Data types, results='markup'}
 
-# More dive into data
+# Deep dive into data
 
 str(raw_data)
 str(zone_lookup)
@@ -78,7 +81,7 @@ kable(sapply(raw_data, typeof))
 
 ### 2.4 Data Manipulation
 
-```{r Removing excess columns}
+```{r Excess columns Removal}
 
 head(raw_data)
 
@@ -98,9 +101,9 @@ colnames(raw_data)[8] <- 'DOLocation'
 xkablesummary(raw_data,bso = 'bordered')
 ```
 
-#### 2.4.1 Looking up values
+#### 2.4.1 Look up values
 
-```{r D}
+```{r Pi}
 
 # Looking up Zone for Zone IDs 
 
@@ -109,43 +112,297 @@ raw_data <- inner_join(raw_data,zone_lookup,by=c('PULocation' = 'LocationID'))
 # Dropping irrelevant column added from above join
 
 drop <- c('Zone','service_zone','PULocation')
+
 raw_data <- raw_data[,!(colnames(raw_data) %in% drop)]
+
 colnames(raw_data)[12] <- 'PULocation'
 
 # Performing above exercise for drop off location
 
 raw_data <- inner_join(raw_data,zone_lookup,by=c('DOLocation' = 'LocationID'))
+
 drop <- c('Zone','service_zone','DOLocation')
+
 raw_data <- raw_data[,!(colnames(raw_data) %in% drop)]
+
 colnames(raw_data)[12] <- 'DOLocation'
 
 ```
 
-#### 2.4.2 Adding calculated column of interest
+#### 2.4.2 Calculated column of interest
 
 ```{r tip percentage}
 
 # Adding tip percentage
 
-raw_data['tip_perc'] <- c(round((raw_data['tip_amount']/raw_data['fare_amount'])*100,0))
+raw_data['tip_perc'] <- c(round((raw_data$tip_amount/raw_data$fare_amount)*100,0))
 
 # Adding trip duration
 
-raw_data['trip_duration'] <- raw_data['dropoff_time'] - raw_data['pickup_time'] / 60
+raw_data['trip_duration'] <- c(minute(seconds_to_period(raw_data$dropoff_time - raw_data$pickup_time))) +c(hour(seconds_to_period(raw_data$dropoff_time - raw_data$pickup_time))*60)
 
-difftime(ymd_hms(raw_data['dropoff_time']) - ymd_hms(raw_data['pickup_time']), units = 'mins')
+# Adding day of the week
 
-head(raw_data,n = 10)
+raw_data['day'] <- c(wday(raw_data$pickup_time,label=TRUE))
+
+```
+
+```{r Pick up time period}
+
+# Creating cut-off times
+
+breaks <- hour(hm("00:00", "6:00", "12:00", "18:00", "23:59"))
+
+# Creating labels for cut off time
+
+labels <- c("Night", "Morning", "Afternoon", "Evening")
+
+# Calculating the time period based on the pick up time
+
+raw_data['PU_time_of_day'] <- cut(x=hour(raw_data$pickup_time), breaks = breaks, labels = labels, include.lowest=TRUE)
+
+# Changing the variable as categorical
+
+raw_data$PU_time_of_day <- as.factor(raw_data$PU_time_of_day)
+
+```
+
+```{r Drop off time period}
+
+# Calculating the time period based on the drop off time
+
+raw_data['DO_time_of_day'] <- cut(x=hour(raw_data$dropoff_time), breaks = breaks, labels = labels, include.lowest=TRUE)
+
+# Changing the variable as categorical
+
+raw_data$DO_time_of_day <- as.factor(raw_data$DO_time_of_day)
+
+```
+
+#### 2.4.3 Missing vaules
+
+```{r}
+
+# Summary for NA values
+
+kable(colSums(is.na(raw_data)))
+
+# Investigating Tip percentage
+
+raw_data[is.na(raw_data$tip_perc),]
+
+# On Investigating, it is found that there are trips with no fare amount and, by extension, no tips. Hence we will drop these values.
+
+raw_data <- raw_data[!is.na(raw_data$tip_perc),]
+
+# Investigating Passenger Count and RatecodeID
+
+raw_data[is.na(raw_data$passenger_count),]
+
+# We can drop records for which the number of passengers was not recorded, as this will tamper with our analysis of fare amount and tip percentage.
+
+raw_data <- raw_data[!is.na(raw_data$passenger_count),]
+
+kable(colSums(is.na(raw_data)))
+```
+
+#### 2.4.1 Defining categorical variables
+
+```{r}
+
+colnames(raw_data)
+
+raw_data$VendorID <- as.factor(raw_data$VendorID)
+
+raw_data$RatecodeID <- as.factor(raw_data$RatecodeID)
+
+raw_data$payment_type <- as.factor(raw_data$payment_type)
+
+raw_data$PULocation <- as.factor(raw_data$PULocation)
+
+raw_data$DOLocation <- as.factor(raw_data$DOLocation)
+
+raw_data$day <- as.factor(raw_data$day)
+
+```
+
+#### 2.4.4 Outliers
+
+```{r Cleaning Data}
+
+# Glimpse into the summary for the raw data.
+
+xkablesummary(raw_data)
+
+# Looking at the above summary, following observations are considered while dealing with outliers.
+# 1. Passenger_count seems to go up to nine, which seems incorrect; hence, we will consider passengers up to 6.
+# 2. The trip distance has a maximum value of 184341 miles, more than the entire United States. Therefore we consider trip distances up to 40 miles.
+# 3. RatecodeID, according to our data, can be only six values; however, the data contains values beyond six. These values are neglected.
+# 4. The fare amount ranges from -907 to 395845. Unless someone is too generous, these values are incorrect. The range for fare amount is considered from 0 to 150.
+# 5. Similarly considering the range 0-100 for the tipping amount and toll collected.
+# 6. The unknown values for the pick-up and drop-off locations are dropped.
+# 7. When considering the payment type, only credit card payments are referenced.
+# 8. Finally, values beyond the 500% tipping percentage looks skeptical; hence we will ignore these values and consider up to a 60% tipping ratio.
+
+# Categorical variables check.
+
+unique(raw_data$VendorID)
+unique(raw_data$PULocation)
+unique(raw_data$DOLocation)
+unique(raw_data$RatecodeID)
+
+# Numeric Variables check
+
+raw_data[raw_data$tip_perc > 100,]
+
+max(raw_data$fare_amount)
+min(raw_data$fare_amount)
+raw_data[raw_data$fare_amount > 150,]
+
+max(raw_data$trip_distance)
+min(raw_data$trip_distance)
+raw_data[raw_data$trip_distance > 125,]
+
+max(raw_data$tip_amount)
+min(raw_data$tip_amount)
+raw_data[raw_data$tip_amount > 80,]
+
+max(raw_data$tolls_amount)
+min(raw_data$tolls_amount)
+raw_data[raw_data$tolls_amount > 80,]
+
+raw_data[raw_data$PULocation == 'Unknown',]
+
+raw_data[raw_data$DOLocation == 'Unknown',]
+
+max(raw_data$tip_perc)
+min(raw_data$tip_perc)
+raw_data[raw_data$tip_perc > 100,]
+
+# cleaning the final data
+
+clean_data <- 
+  raw_data %>% filter(
+  (RatecodeID != 99)  		  & 
+  (payment_type == 1)       &
+  (PULocation != 'Unknown') & 
+  (DOLocation != 'Unknown') &
+  (passenger_count > 0) 	  & (passenger_count <= 6) &
+  (trip_distance > 0) 		  & (trip_distance <150) 	& 
+  (fare_amount > 0) 		    & (fare_amount < 150) 	& 
+  (tip_amount > 0) 			    & (tip_amount < 100) 	  & 
+  (tolls_amount > 0) 		    & (tolls_amount < 100) 	&  
+  (trip_duration > 0) 		  & (trip_duration <= 40) & 
+  (tip_perc >0) 			      & (tip_perc < 60))
+
+nrow(clean_data)
+
+```
+
+```{r Summary for Cleaned Data, results='markup'}
+xkablesummary(clean_data,bso = 'bordered')
+```
+
+The number of observations post data cleaning are `r nrow(clean_data) * ncol(clean_data)`
+
+### 2.5 Distribution Check
+
+```{r Tip Percentage}
+
+## The data is approximately normally distributed with slight skewness on the right side.
+
+clean_data %>%
+ggplot(aes(tip_perc)) +
+  geom_histogram(aes(y =..density..),  colour = "black", fill = "#6a73b6", binwidth = 1) + 
+  ggtitle("Distribution of NYC Taxi Tips") +
+  stat_function(fun = dnorm, args = list(mean = mean(clean_data$tip_perc), sd = sd(clean_data$tip_perc))) +       
+  labs(x= 'Tip Percentage', y='Density')
+
+```
+
+```{r Trip Duration}
+
+## The data is approximately normally distributed with slight skewness on the right side.
+
+clean_data %>%
+ggplot(aes(trip_duration)) +
+  geom_histogram(aes(y =..density..),  colour = "black", fill = "#6a73b6", binwidth = 1) + 
+  ggtitle("Distribution of NYC Taxi Ride Lenghts") +
+  stat_function(fun = dnorm, args = list(mean = mean(clean_data$trip_duration), sd = sd(clean_data$trip_duration))) +       
+  labs(x= 'Ride Durations', y='Density') 
 
 ```
 
 
+
 ## 3 Explanatory Data Analysis
 
+### 3.1 Parameter Visualization 
 
+```{r Day Duration}
+
+## It looks like the day of the week has no significant impact on the tip percentage.
+
+avg_tip_per_day <- aggregate(clean_data['tip_perc'], list(clean_data$day), mean)
+
+colnames(avg_tip_per_day)[1] <- 'day'
+
+ggplot(data = avg_tip_per_day, aes(y = tip_perc,x=day, fill = day)) +
+  geom_col() +  
+  labs (x= "Day of the Week", y = "Avg. Tip Percentage") +
+   theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle('Day-wise Distribution of Trips')
+```
+
+```{r Vendor Split}
+
+## Verifone has a greater number of market share
+
+vendor_split <- clean_data %>% group_by(VendorID) %>% count()
+
+
+ggplot(vendor_split, aes(x = "", y = n, fill = VendorID)) +
+  geom_col(color = "black") +
+  geom_label(aes(label = n),
+             position = position_stack(vjust = 0.5),
+             show.legend = FALSE) +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = c("#A9A9A9","#0674C4"),labels=c('Creative Mobile Technologies', 'VeriFone'),name = "Vendor")+
+  theme(axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        panel.grid  = element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+  ggtitle('Vendor Split')
+```
+
+```{r Passenger Trips Count}
+
+## The plot is right skewed signifying there are greater number of trips with single passenger.
+
+trips_per_passenger <- clean_data %>% group_by(passenger_count) %>%  count()
+
+ggplot(trips_per_passenger,aes(passenger_count, n, fill = passenger_count)) +
+  geom_col() +
+  labs(x = "Number of passengers",y ="Total number of trips") +
+  scale_fill_gradient(low="#F7BA2C",high="#F3696E") +
+  theme(plot.title = element_text(hjust = 0.5),legend.position = "none") +
+  ggtitle('Passenger\'s Trip Duration')
+
+```
+
+
+```{r}
+
+ggplot(clean_data,aes(x = fare_amount,y = tip_amount)) + geom_point()
+
+colnames(clean_data)
+
+```
 
 ## 4 Conclusion
 
+
+##Daylight savings are not considered
 
 
 
