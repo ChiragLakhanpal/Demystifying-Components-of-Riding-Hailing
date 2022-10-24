@@ -25,6 +25,7 @@ library(dplyr)
 library(lubridate)
 library(ggplot2)
 library(reshape2)
+
 # knitr::opts_chunk$set(warning = F, results = "markup", message = F)
 knitr::opts_chunk$set(warning = F, results = "hide", message = F)
 options(scientific=T, digits = 3) 
@@ -206,7 +207,7 @@ raw_data <- raw_data[!is.na(raw_data$passenger_count),]
 kable(colSums(is.na(raw_data)))
 ```
 
-#### 2.4.1 Defining categorical variables
+#### 2.4.4 Defining categorical variables
 
 ```{r}
 
@@ -224,9 +225,10 @@ raw_data$DOLocation <- as.factor(raw_data$DOLocation)
 
 raw_data$day <- as.factor(raw_data$day)
 
+
 ```
 
-#### 2.4.4 Outliers
+#### 2.4.5 Outliers
 
 ```{r Cleaning Data}
 
@@ -367,8 +369,10 @@ ggplot(vendor_split, aes(x = "", y = n, fill = VendorID)) +
              position = position_stack(vjust = 0.5),
              show.legend = FALSE) +
   coord_polar(theta = "y") +
-  scale_fill_manual(values = c("#A9A9A9","#0674C4"),labels=c('Creative Mobile Technologies', 'VeriFone'),name = "Vendor")+
-  theme(axis.text = element_blank(), 
+  scale_fill_manual(values = c("#5A5A5A","#0674C4"),labels=c('Creative Mobile Technologies', 'VeriFone'),name = "Vendor")+
+  theme(axis.text = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
         axis.ticks = element_blank(),
         panel.grid  = element_blank(),
         plot.title = element_text(hjust = 0.5)) +
@@ -390,12 +394,108 @@ ggplot(trips_per_passenger,aes(passenger_count, n, fill = passenger_count)) +
 
 ```
 
+```{r Distribution for day wise trip count}
 
+# select unique entries in the time of day 
+lvls <- unique(unlist(clean_data$PU_time_of_day))
+
+# Applying function which segregates the lvls value and count them in each col of dataset. Finally we choose 16 - PU_time_of_day and 17 - DO_time_of_day from the results.
+
+time_period <- sapply(clean_data,function(x) table(factor(x, levels = lvls)))[,16:17]
+
+# Converting index into first column 
+
+time_period <- cbind(dayPeriod = rownames(time_period), time_period)
+rownames(time_period) <- 1:nrow(time_period)
+
+# Converting matrix as data frame
+
+time_period <- as.data.frame(time_period)
+
+# Converting variables as categorical for ploting
+
+time_period['PU_time_of_day'] <- as.numeric(unlist(time_period['PU_time_of_day']))
+time_period['DO_time_of_day'] <- as.numeric(unlist(time_period['DO_time_of_day']))
+time_period['dayPeriod'] <- as.factor(noquote(time_period[,'dayPeriod']))
+
+# For ploting two variables 
+
+df <- melt(time_period, id.vars='dayPeriod')
+
+ggplot(df, aes(x=dayPeriod, y=value, fill=variable)) + 
+    geom_bar(stat = "identity",position = "dodge") +
+  labs(x = "Time of the Day",y ="Total number of trips") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_manual(values = c("#5A5A5A","#0674C4"),labels=c('Pick Up Time', 'Drop Off Time'),name = "Time Category") +
+  ggtitle('Distribution of time of the day')
+```
+
+### 3.2 Relationship Exploration 
+
+```{r Relationship Exploration}
+
+str(clean_data)
+
+melt(cor(clean_data[,unlist(lapply(clean_data, is.numeric))])) %>%
+ggplot(aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  geom_text(aes(Var2, Var1, label = round(value,3)), color = "black", size = 2.5) +
+theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  axis.text.x = element_text(angle = 45, hjust=1),
+  legend.justification = c(0, 1),
+  plot.title = element_text(hjust = 0.5))+
+  guides(fill = guide_colorbar(barwidth = 1, barheight = 5,
+                title.position = "top", title.hjust = 0.5)) +
+  scale_fill_manual(name = "Scale") +
+  scale_fill_gradient(low="#fff33b",high="#e93e3a") +
+  ggtitle('Correlation between Entities')  
+
+```
+**Observations** - We initially skimmed correlation coefficients for our continuous variables, such as travel distance and trip time, to see if they were connected to tip percentage. As seen in the above cor plot, the results were -0.28 and -0.175, which suggest a weakly negative (downhill) association. However, since correlation does not imply causation, statistical tests must be performed on these variables to establish their relationship.
+
+### 3.3 Location Analysis
+
+```{r Location wise distribution}
+lvls <- unique(unlist(clean_data$PULocation))
+
+location_dist <- sapply(clean_data,function(x) table(factor(x, levels = lvls)))[,11:12]
+
+location_dist <- cbind(location = rownames(location_dist), location_dist)
+rownames(location_dist) <- 1:nrow(location_dist)
+
+location_dist <- as.data.frame(location_dist)
+
+location_dist['PULocation'] <- as.numeric(unlist(location_dist['PULocation']))
+location_dist['DOLocation'] <- as.numeric(unlist(location_dist['DOLocation']))
+location_dist['location'] <- as.factor(noquote(location_dist[,'location']))
+
+# For ploting two variables 
+
+df <- melt(location_dist, id.vars='location')
+
+ggplot(df, aes(x=location, y=value, fill=variable)) + 
+    geom_bar(stat = "identity",position = "dodge") +
+  labs(x = "Location",y ="Total number of trips") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_manual(values = c("#5A5A5A","#0674C4"),labels=c('Pick Up Location', 'Drop Off Location'),name = "Location Category") +
+  ggtitle('Distribution of Location')
+```
 ```{r}
+location_freq_dis <-  clean_data %>% group_by(PULocation,DOLocation) %>%  count(sort = T)
 
-ggplot(clean_data,aes(x = fare_amount,y = tip_amount)) + geom_point()
+colnames(location_freq_dis)[1] <- 'Pick up Location'
+colnames(location_freq_dis)[2] <- 'Drop off Location'
+colnames(location_freq_dis)[3]   <- 'Count'
 
+xkabledply(location_freq_dis,bso = 'bordered',title = 'Location Distribution',pos = 'center',digits = )
+```
+```{r ANOVA Tests for Location}
 colnames(clean_data)
+
+summary(aov(tip_perc ~ PULocation, data = clean_data))
+summary(aov(tip_perc ~ DOLocation, data = clean_data))
 
 ```
 
