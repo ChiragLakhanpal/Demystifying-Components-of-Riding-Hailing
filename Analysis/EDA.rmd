@@ -15,6 +15,13 @@ output:
     toc_depth: '3'
 ---
 
+<style type="text/css">
+  body{
+  font-size: 10pt;
+  font-family: Helvetica;
+}
+</style>
+
 ```{r init, include=FALSE}
 # Installing necessary packages 
 
@@ -52,7 +59,7 @@ zone_lookup <- data.frame(read.csv("../Data/Taxi_Zone_Lookup.csv"))
 
 data_des <- data.frame(read.csv('../Data/Data_Definitions.csv'))
 
-kable(head(raw_data),align = 'l')
+xkabledply(head(raw_data),bso='bordered', title = 'Glimpse of Raw Data')
 
 ```
 
@@ -60,11 +67,11 @@ kable(head(raw_data),align = 'l')
 ### 2.2 Data Descriptors
 
 ```{r, results='markup'}
-kable(head(data_des),align = 'l')
+xkabledply(head(data_des),bso='bordered', title = 'Zones', pos = 'center')
 ```
 
 ```{r, results='markup'}
-kable(head(zone_lookup),align = 'l')
+xkabledply(head(zone_lookup),bso='bordered', title = 'Zones', pos = 'center')
 ```
 
 ### 2.3 Data Statistics
@@ -76,7 +83,7 @@ kable(head(zone_lookup),align = 'l')
 str(raw_data)
 str(zone_lookup)
 
-kable(sapply(raw_data, typeof))
+xkabledply(data.frame(sapply(raw_data, typeof)),bso='bordered', title = 'Data Types', pos = 'center')
 
 ```
 
@@ -99,12 +106,12 @@ colnames(raw_data)[8] <- 'DOLocation'
 ```
 
 ```{r Summary for Raw Data, results='markup'}
-xkablesummary(raw_data,bso = 'bordered')
+xkablesummary(raw_data,bso = 'bordered', title = 'Raw Data Summary', pos = 'center')
 ```
 
 #### 2.4.1 Look up values
 
-```{r Pi}
+```{r PU and DO Loop up}
 
 # Looking up Zone for Zone IDs 
 
@@ -186,7 +193,7 @@ raw_data$DO_time_of_day <- as.factor(raw_data$DO_time_of_day)
 
 # Summary for NA values
 
-kable(colSums(is.na(raw_data)))
+xkabledply(data.frame(colSums(is.na(raw_data))),bso='bordered', title = 'NA Summary Pre-Cleaning', pos = 'center')
 
 # Investigating Tip percentage
 
@@ -204,7 +211,7 @@ raw_data[is.na(raw_data$passenger_count),]
 
 raw_data <- raw_data[!is.na(raw_data$passenger_count),]
 
-kable(colSums(is.na(raw_data)))
+xkabledply(data.frame(colSums(is.na(raw_data))),bso='bordered', title = 'NA Summary Post-Cleaning', pos = 'center')
 ```
 
 #### 2.4.4 Defining categorical variables
@@ -234,7 +241,7 @@ raw_data$day <- as.factor(raw_data$day)
 
 # Glimpse into the summary for the raw data.
 
-xkablesummary(raw_data)
+xkablesummary(raw_data,bso='bordered', title = 'Summary of Raw Data', pos = 'center')
 
 # Looking at the above summary, following observations are considered while dealing with outliers.
 # 1. Passenger_count seems to go up to nine, which seems incorrect; hence, we will consider passengers up to 6.
@@ -302,7 +309,7 @@ nrow(clean_data)
 ```
 
 ```{r Summary for Cleaned Data, results='markup'}
-xkablesummary(clean_data,bso = 'bordered')
+xkablesummary(clean_data,bso='bordered', title = 'Summary for Cleaned Data', pos = 'center')
 ```
 
 The number of observations post data cleaning are `r nrow(clean_data) * ncol(clean_data)`
@@ -321,21 +328,6 @@ ggplot(aes(tip_perc)) +
   labs(x= 'Tip Percentage', y='Density')
 
 ```
-
-```{r Trip Duration}
-
-## The data is approximately normally distributed with slight skewness on the right side.
-
-clean_data %>%
-ggplot(aes(trip_duration)) +
-  geom_histogram(aes(y =..density..),  colour = "black", fill = "#6a73b6", binwidth = 1) + 
-  ggtitle("Distribution of NYC Taxi Ride Lenghts") +
-  stat_function(fun = dnorm, args = list(mean = mean(clean_data$trip_duration), sd = sd(clean_data$trip_duration))) +       
-  labs(x= 'Ride Durations', y='Density') 
-
-```
-
-
 
 ## 3 Explanatory Data Analysis
 
@@ -483,21 +475,87 @@ ggplot(df, aes(x=location, y=value, fill=variable)) +
   ggtitle('Distribution of Location')
 ```
 ```{r}
-location_freq_dis <-  clean_data %>% group_by(PULocation,DOLocation) %>%  count(sort = T)
+#location_freq_dis <-  clean_data %>% group_by(PULocation,DOLocation) %>%  count(sort = T)
+
+location_freq_dis <- clean_data %>% group_by(PULocation,DOLocation) %>%  count(sort = T)
+
+avg_fare <- clean_data %>% group_by(PULocation,DOLocation) %>%  summarise(sum(fare_amount))
+
+avg_fare <- inner_join(location_freq_dis,avg_fare,by=c('PULocation' = 'PULocation', 'DOLocation' = 'DOLocation'))
+
+location_freq_dis['Avg. Fare'] <- avg_fare['sum(fare_amount)'] / avg_fare['n']
 
 colnames(location_freq_dis)[1] <- 'Pick up Location'
 colnames(location_freq_dis)[2] <- 'Drop off Location'
-colnames(location_freq_dis)[3]   <- 'Count'
+colnames(location_freq_dis)[3]   <- 'No. of Trips'
 
 xkabledply(location_freq_dis,bso = 'bordered',title = 'Location Distribution',pos = 'center',digits = )
+
+kable(location_freq_dis)
+
 ```
-```{r ANOVA Tests for Location}
+
+**Observations** - At first glance, Queens has the most pickups, followed by Manhattan and Brooklyn in second and third, respectively. Similarly, Manhattan, Queens, and Brooklyn make up the top three drop-off locations. Further investigation showed that the highest number of trips was between Queens and Manhattan, followed by Manhattan to Queens and Manhattan to Brooklyn. These results are credible when considering yellow cabs (the focus of this analysis), as they primarily serve the above regions, in contrast to green cabs, which serve areas where yellow cabs do not operate. 
+We can see the highest avg fare price, Staten to Island EWR, which is $102; however, we do not have sufficient data for these locations; hence we consider only the top 10 source and destination boroughs in terms of number of trips. A trip from Manhattan to EWR costs around $66 on average and $46 for travelling within Queens. 
+
+Now that we have looked at the insights from our location vs tip percentage data, we explore the statistical significance of the two 
+
+```{r Tip percentage across locations}
+
+ggplot(data = clean_data, aes(x = PULocation, y = tip_perc, fill = PULocation)) + 
+  ggtitle("Tip Ratio by Pickup Location") + 
+  geom_boxplot() + 
+  labs(x = "Location", y ="Tip Percentage")+
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+ggplot(data = clean_data, aes(x = DOLocation, y = tip_perc, fill = DOLocation)) + 
+  ggtitle("Tip Ratio by Drop off Location") + 
+  geom_boxplot() + 
+  labs(x = "Location", y ="Tip Percentage")+
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+```{r ANOVA Tests for Location, results='markup'}
 colnames(clean_data)
 
 summary(aov(tip_perc ~ PULocation, data = clean_data))
 summary(aov(tip_perc ~ DOLocation, data = clean_data))
 
 ```
+
+**Observations** - The p-value for both variables is 0.2*10^−15 or 0.0000000000000002, which are infinitesimal compared to the significance level of 0.05, thus rejecting the null hypothesis that the means of the two entities are the same, making them statically different.
+
+### 3.4 Trip Duration Impact in Tips
+
+```{r Trip Duration}
+
+## The data is approximately normally distributed with slight skewness on the right side.
+
+clean_data %>%
+ggplot(aes(trip_duration)) +
+  geom_histogram(aes(y =..density..),  colour = "black", fill = "#6a73b6", binwidth = 1) + 
+  ggtitle("Distribution of NYC Taxi Ride Lenghts") +
+  stat_function(fun = dnorm, args = list(mean = mean(clean_data$trip_duration), sd = sd(clean_data$trip_duration))) +       
+  labs(x= 'Ride Durations', y='Density') 
+
+```
+
+
+**Observations** - The data is approximately normally distributed with slight skewness on the right side. This is to say that majority of out trips are 20-40 mins in length
+
+```{r}
+
+t.test(clean_data$tip_perc,clean_data$trip_duration)
+
+```
+
+**Observations** - A t-test between travel time and customer tip percentage reveals the p-value of the relationship between the variables, which is 0.2*10-15; consequently, since the value is much lower than the significance level of 0.05, we can state that Yellow taxi passengers tip differently depending on the length of the trip and successfully reject the null hypothesis that the means of the two variables are equal.
+
+### 3.4 Trip Duration Impact in Tips
+
+
+
 
 ## 4 Conclusion
 
