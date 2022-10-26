@@ -594,6 +594,24 @@ ggplot(aes(x = trip_distance, y = n, fill= Duration_Type)) +
 
 ##Daylight savings are not considered
 
+###Change101
+
+```{r Tip percentage across locations}
+
+ggplot(data = clean_data, aes(x = PULocation, y = tip_perc, fill = PULocation)) + 
+  ggtitle("Tip Ratio by Pickup Location") + 
+  geom_boxplot() + 
+  labs(x = "Location", y ="Tip Percentage")+
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+ggplot(data = clean_data, aes(x = DOLocation, y = tip_perc, fill = DOLocation)) + 
+  ggtitle("Tip Ratio by Drop off Location") + 
+  geom_boxplot() + 
+  labs(x = "Location", y ="Tip Percentage")+
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
 
 
 
