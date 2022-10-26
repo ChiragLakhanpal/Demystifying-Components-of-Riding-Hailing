@@ -594,7 +594,17 @@ ggplot(aes(x = trip_distance, y = n, fill= Duration_Type)) +
 
 ##Daylight savings are not considered
 
-###Change101
+
+
+
+
+
+
+
+
+
+
+### Change-101
 
 ```{r Tip percentage across locations}
 
@@ -612,7 +622,47 @@ ggplot(data = clean_data, aes(x = DOLocation, y = tip_perc, fill = DOLocation)) 
 
 ```
 
+```{r ANOVA Tests for Location, results='markup'}
+colnames(clean_data)
 
+summary(aov(tip_perc ~ PULocation, data = clean_data))
+summary(aov(tip_perc ~ DOLocation, data = clean_data))
+
+```
+We are attempting to determine if those doing shorter journeys are more likely to leave larger gratuities or those taking longer travels are more giving.
+
+```{r}
+
+# Subsetting columns of intrest
+
+trip_len_nature <- subset(clean_data,select = c("tip_perc","trip_distance"))
+
+# We begin by splitting up out data into two segments - Short Trips (0-20 mins) and Long Trips (20-40 mins)
+
+breaks=c(0, mean(clean_data$trip_distance),max(clean_data$trip_distance))
+
+# Creating labels for cut off time
+
+labels <- c("Short Trip", "Long Trip")
+
+# Splitting the trips into segment 
+
+trip_len_nature['Duration_Type'] <- cut(x=as.integer(clean_data$trip_distance), breaks = breaks, labels = labels, include.lowest=TRUE)
+
+# Checking for NA values in the new col
+
+clean_data[is.na(trip_len_nature),]
+
+trip_len_nature %>% group_by(trip_distance,tip_perc,Duration_Type) %>% count() %>%
+ggplot(aes(x = trip_distance, y = n, fill= Duration_Type)) + 
+  geom_col(width = 0.1, alpha = 0.6) +
+  labs(y = 'Tip Percentage Frequency', x = 'Trip Distance', title = 'Distribution of tip percentages across trip Distance') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+   scale_fill_manual(values = c("#003f5c","#ffa600"),labels=c('Short Trip', 'Long Trip'),name = "Trip Type") 
+
+```
+
+**Observations** Just by looking at the graphs we can 
 
 
 
