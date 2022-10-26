@@ -612,6 +612,13 @@ ggplot(data = clean_data, aes(x = DOLocation, y = tip_perc, fill = DOLocation)) 
 
 ```
 
+```{r ANOVA Tests for Location, results='markup'}
+colnames(clean_data)
+
+summary(aov(tip_perc ~ PULocation, data = clean_data))
+summary(aov(tip_perc ~ DOLocation, data = clean_data))
+
+```
 
 
 
