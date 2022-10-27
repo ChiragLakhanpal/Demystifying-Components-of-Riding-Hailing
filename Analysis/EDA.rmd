@@ -18,9 +18,10 @@ output:
 <style type="text/css">
   body{
   font-size: 10pt;
-  font-family: Helvetica;
+  font-family: 'Calibri';
 }
 </style>
+
 
 ```{r init, include=FALSE}
 # Installing necessary packages 
@@ -35,11 +36,11 @@ library(reshape2)
 
 # knitr::opts_chunk$set(warning = F, results = "markup", message = F)
 knitr::opts_chunk$set(warning = F, results = "hide", message = F)
-options(scientific=T, digits = 3) 
-# options(scipen=9, digits = 3) 
+#options(scientific=T, digits = 3) 
+options(scipen=9, digits = 3) 
 # ‘scipen’: integer. A penalty to be applied when deciding to print numeric values in fixed or exponential notation.  Positive values bias towards fixed and negative towards scientific notation: fixed notation will be preferred unless it is more than ‘scipen’ digits wider.
 # use scipen=999 to prevent scientific notation at all times
-options(scipen=999)
+#options(scipen=999)
 ```
 
 ## 1 Exordium
@@ -71,7 +72,7 @@ xkabledply(head(data_des),bso='bordered', title = 'Zones', pos = 'center')
 ```
 
 ```{r, results='markup'}
-xkabledply(head(zone_lookup),bso='bordered', title = 'Zones', pos = 'center')
+xkabledply(head(zone_lookup),bso='bordered', title = 'Zones')
 ```
 
 ### 2.3 Data Statistics
@@ -83,7 +84,7 @@ xkabledply(head(zone_lookup),bso='bordered', title = 'Zones', pos = 'center')
 str(raw_data)
 str(zone_lookup)
 
-xkabledply(data.frame(sapply(raw_data, typeof)),bso='bordered', title = 'Data Types', pos = 'center')
+xkabledply(data.frame(sapply(raw_data, typeof)),bso='bordered', title = 'Data Types')
 
 ```
 
@@ -337,13 +338,13 @@ ggplot(aes(tip_perc)) +
 
 ## It looks like the day of the week has no significant impact on the tip percentage.
 
-avg_tip_per_day <- aggregate(clean_data['tip_perc'], list(clean_data$day), mean)
+trips_per_day <- clean_data %>% group_by(day) %>% count()
 
-colnames(avg_tip_per_day)[1] <- 'day'
+colnames(trips_per_day)[1] <- 'day'
 
-ggplot(data = avg_tip_per_day, aes(y = tip_perc,x=day, fill = day)) +
+ggplot(data = trips_per_day, aes(y = n,x=day, fill = day)) +
   geom_col() +  
-  labs (x= "Day of the Week", y = "Avg. Tip Percentage") +
+  labs (x= "Day of the Week", y = "No. of Trips") +
    theme(plot.title = element_text(hjust = 0.5)) +
   ggtitle('Day-wise Distribution of Trips')
 ```
@@ -489,9 +490,8 @@ colnames(location_freq_dis)[1] <- 'Pick up Location'
 colnames(location_freq_dis)[2] <- 'Drop off Location'
 colnames(location_freq_dis)[3]   <- 'No. of Trips'
 
-xkabledply(location_freq_dis,bso = 'bordered',title = 'Location Distribution',pos = 'center',digits = )
+xkabledply(location_freq_dis,bso = 'bordered',title = 'Location Distribution')
 
-kable(location_freq_dis)
 
 ```
 
@@ -515,12 +515,21 @@ ggplot(data = clean_data, aes(x = DOLocation, y = tip_perc, fill = DOLocation)) 
   theme(plot.title = element_text(hjust = 0.5)) 
 
 ```
+```{r}
+
+ggplot(data = clean_data, aes(x = PULocation, fill = PULocation)) + geom_bar() + ggtitle("Trip Counts Based on Pick UP Location") + labs(x = "Location", y ="Trip Frequency") + theme(plot.title = element_text(hjust = 0.5)) 
+
+ggplot(data = clean_data, aes(x = DOLocation, fill = DOLocation)) + geom_bar() + ggtitle("Trip Counts Based on Dropoff Location") + labs(x = "Location", y ="Trip Frequency") + theme(plot.title = element_text(hjust = 0.5)) 
+```
+
 
 ```{r ANOVA Tests for Location, results='markup'}
-colnames(clean_data)
 
-summary(aov(tip_perc ~ PULocation, data = clean_data))
-summary(aov(tip_perc ~ DOLocation, data = clean_data))
+anova_puloc_tip <- aov(tip_perc ~ PULocation, data = clean_data)
+anova_doloc_tip <- aov(tip_perc ~ DOLocation, data = clean_data)
+
+summary(anova_puloc_tip)
+summary(anova_doloc_tip)
 
 ```
 
@@ -540,7 +549,16 @@ ggplot(aes(trip_duration)) +
   labs(x= 'Ride Durations', y='Density') 
 
 ```
+```{r}
 
+clean_data %>% group_by(trip_duration) %>% summarise_at(vars(tip_perc), list(mean = mean)) %>%
+ggplot(aes(x = trip_duration, y = mean, fill= mean)) + 
+  geom_col( alpha = 0.6) +
+  labs(y = 'Tip Percentage Frequency', x = 'Trip Duration', title = 'Distribution of tip percentages across Trip Duration') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_gradient(name = "Tip Frequency")
+
+```
 
 **Observations** - The data is approximately normally distributed with slight skewness on the right side. This is to say that majority of out trips are 20-40 mins in length
 
@@ -558,7 +576,6 @@ ttest_tip_duration
 We are attempting to determine if those doing shorter journeys are more likely to leave larger gratuities or those taking longer travels are more giving.
 
 ```{r}
-
 # Subsetting columns of intrest
 
 trip_len_nature <- subset(clean_data,select = c("tip_perc","trip_distance"))
@@ -575,9 +592,10 @@ labels <- c("Short Trip", "Long Trip")
 
 trip_len_nature['Duration_Type'] <- cut(x=as.integer(clean_data$trip_distance), breaks = breaks, labels = labels, include.lowest=TRUE)
 
+trip_len_nature
 # Checking for NA values in the new col
 
-clean_data[is.na(trip_len_nature),]
+trip_len_nature[is.na(trip_len_nature),]
 
 trip_len_nature %>% group_by(trip_distance,tip_perc,Duration_Type) %>% count() %>%
 ggplot(aes(x = trip_distance, y = n, fill= Duration_Type)) + 
@@ -588,7 +606,44 @@ ggplot(aes(x = trip_distance, y = n, fill= Duration_Type)) +
 
 ```
 
-**Observations** Just by looking at the graphs we can 
+```{r}
+
+melt(trip_len_nature) %>%
+ggplot( aes(x = Duration_Type, y = value,fill = Duration_Type))+
+  geom_boxplot() +
+  stat_summary(fun.y=mean, geom="point", shape=23, size=4) + 
+  labs(y = 'Tip Percentage', x = 'Distance Travelled', title = 'Box Plot of tip percentages vs trip Distance') +
+  scale_fill_manual(values = c("#003f5c","#ffa600"),labels=c('Short Trip', 'Long Trip'),name = "Trip Type")
+  
+```
+
+```{r}
+st <- trip_len_nature[trip_len_nature$Duration_Type == 'Short Trip',] 
+dt <- trip_len_nature[trip_len_nature$Duration_Type == 'Long Trip',]
+  
+str(st)
+str(dt)
+
+xkablesummary(st)
+xkablesummary(dt)
+
+```
+
+```{r}
+
+# A Simple two way test for pvalues which is found to be way less than the significant level 0.05 he
+
+ttest_dis_tip <- t.test(dt$tip_perc , st$tip_perc)
+
+ttest_dis_tip
+```
+
+**Observations** - A Simple two way test for pvalues which is found to be way less than the significant level 0.05. We can reject the null hypothesis 
+Declaring hypothesis 
+Null Hypothesis: Ho Average tip amount is same for both short and long distance passenger(s)
+Alternate Hypothesis: Ha Average tip amount is NOT same for both short and long distance passenger(s)
+
+ Z-test cannot be used because we don't know population's mean & std dev. 
 
 ### 3.6 Importance of passenger count and vendor
 
@@ -656,4 +711,5 @@ dropoff location | ANOVA | `r format(summary(anova_doloc_tip)[[1]][["Pr(>F)"]][[
 distance | T-Test | `r format(ttest_dis_tip$p.value, digits=3)` | means are equal | reject H0 |  
 passenger count | ANOVA | `r format(summary(anova_tip_pass)[[1]][["Pr(>F)"]][1], digits=3)` | means are equal | reject H0 |
 vendor ID | T-test | `r format(ttest_vendor$p.value, digits=3)` | means are equal | failed to reject H0 | 
+
 
