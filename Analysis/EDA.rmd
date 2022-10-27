@@ -253,7 +253,7 @@ xkablesummary(raw_data,bso='bordered', title = 'Summary of Raw Data', pos = 'cen
 # 6. The unknown values for the pick-up and drop-off locations are dropped.
 # 7. When considering the payment type, only credit card payments are referenced.
 # 8. Finally, values beyond the 500% tipping percentage looks skeptical; hence we will ignore these values and consider up to a 60% tipping ratio.
-
+1147
 # Categorical variables check.
 
 unique(raw_data$VendorID)
@@ -287,7 +287,7 @@ raw_data[raw_data$DOLocation == 'Unknown',]
 
 max(raw_data$tip_perc)
 min(raw_data$tip_perc)
-raw_data[raw_data$tip_perc > 100,]
+raw_data[raw_data$tip_perc > 60,]
 
 # cleaning the final data
 
@@ -326,7 +326,9 @@ ggplot(aes(tip_perc)) +
   geom_histogram(aes(y =..density..),  colour = "black", fill = "#6a73b6", binwidth = 1) + 
   ggtitle("Distribution of NYC Taxi Tips") +
   stat_function(fun = dnorm, args = list(mean = mean(clean_data$tip_perc), sd = sd(clean_data$tip_perc))) +       
-  labs(x= 'Tip Percentage', y='Density')
+  labs(x= 'Tip Percentage', y='Density') +
+  theme(plot.title = element_text(hjust = 0.5))
+
 
 ```
 
@@ -446,7 +448,9 @@ theme(
   ggtitle('Correlation between Entities')  
 
 ```
-**Observations** - We initially skimmed correlation coefficients for our continuous variables, such as travel distance and trip time, to see if they were connected to tip percentage. As seen in the above cor plot, the results were -0.28 and -0.175, which suggest a weakly negative (downhill) association. However, since correlation does not imply causation, statistical tests must be performed on these variables to establish their relationship.
+**Observations** - We initially skimmed correlation coefficients for our continuous variables, such as travel distance and trip time, to see if they were connected to tip amount As seen in the above cor plot, the results were -0.28 and -0.175, which suggest a weakly negative (downhill) association. However, since correlation does not imply causation, statistical tests must be performed on these variables to establish their relationship.
+
+Tips 
 
 ### 3.3 Location Analysis
 
@@ -515,6 +519,7 @@ ggplot(data = clean_data, aes(x = DOLocation, y = tip_perc, fill = DOLocation)) 
   theme(plot.title = element_text(hjust = 0.5)) 
 
 ```
+
 ```{r}
 
 ggplot(data = clean_data, aes(x = PULocation, fill = PULocation)) + geom_bar() + ggtitle("Trip Counts Based on Pick UP Location") + labs(x = "Location", y ="Trip Frequency") + theme(plot.title = element_text(hjust = 0.5)) 
@@ -547,14 +552,13 @@ ggplot(aes(trip_duration)) +
   ggtitle("Distribution of NYC Taxi Ride Lenghts") +
   stat_function(fun = dnorm, args = list(mean = mean(clean_data$trip_duration), sd = sd(clean_data$trip_duration))) +       
   labs(x= 'Ride Durations', y='Density') 
-
 ```
 ```{r}
 
 clean_data %>% group_by(trip_duration) %>% summarise_at(vars(tip_perc), list(mean = mean)) %>%
 ggplot(aes(x = trip_duration, y = mean, fill= mean)) + 
   geom_col( alpha = 0.6) +
-  labs(y = 'Tip Percentage Frequency', x = 'Trip Duration', title = 'Distribution of tip percentages across Trip Duration') +
+  labs(y = 'Avg. Tips Percentage ', x = 'Trip Duration', title = 'Distribution of tip percentages across Trip Duration') +
   theme(plot.title = element_text(hjust = 0.5)) +
   scale_fill_gradient(name = "Tip Frequency")
 
@@ -599,7 +603,7 @@ trip_len_nature[is.na(trip_len_nature),]
 
 trip_len_nature %>% group_by(trip_distance,tip_perc,Duration_Type) %>% count() %>%
 ggplot(aes(x = trip_distance, y = n, fill= Duration_Type)) + 
-  geom_col(width = 0.1, alpha = 0.6) +
+  geom_col(width = 0.1, alpha = 1) +
   labs(y = 'Tip Percentage Frequency', x = 'Trip Distance', title = 'Distribution of tip percentages across trip Distance') +
   theme(plot.title = element_text(hjust = 0.5)) +
    scale_fill_manual(values = c("#003f5c","#ffa600"),labels=c('Short Trip', 'Long Trip'),name = "Trip Type") 
@@ -649,11 +653,11 @@ Alternate Hypothesis: Ha Average tip amount is NOT same for both short and long 
 
 ```{r}
 
-avg_tip_per_pas <- clean_data %>% group_by(passenger_count) %>% summarise_at(vars(tip_perc), list(mean = mean))
+avg_tip_per_pas <- clean_data %>% group_by(passenger_count) %>% summarise_at(vars(tip_amount), list(count = length))
 
-ggplot(data = avg_tip_per_pas, aes(y = mean,x=passenger_count, fill = passenger_count)) +
+ggplot(data = avg_tip_per_pas, aes(y = count,x=passenger_count, fill = passenger_count)) +
   geom_col() +  
-  labs (x= "Number of Passengers", y = "Avg Tips") +
+  labs (x= "Number of Passengers", y = "Number of Tips") +
    theme(plot.title = element_text(hjust = 0.5)) +
   ggtitle('Passenger-wise Distribution of Tips')
 
@@ -691,7 +695,7 @@ ttest_vendor
 ##Daylight savings are not considered
 
 Limitations 
-harware 
+harware mon on mon 
 no cash tips are considered 
 there are more variables to consider such as gender and weather
 human error in data 
@@ -711,5 +715,3 @@ dropoff location | ANOVA | `r format(summary(anova_doloc_tip)[[1]][["Pr(>F)"]][[
 distance | T-Test | `r format(ttest_dis_tip$p.value, digits=3)` | means are equal | reject H0 |  
 passenger count | ANOVA | `r format(summary(anova_tip_pass)[[1]][["Pr(>F)"]][1], digits=3)` | means are equal | reject H0 |
 vendor ID | T-test | `r format(ttest_vendor$p.value, digits=3)` | means are equal | failed to reject H0 | 
-
-
