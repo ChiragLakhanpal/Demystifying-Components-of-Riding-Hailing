@@ -1,0 +1,11 @@
+# 4 Model Building
+
+We began by selecting linear (univariate and multivariate) regression models to examine how they fit our data. Linear regression is a conventional, common approach that may explain the association with tip well, so we chose to test it first. To strengthen our linear model, we also used step-by-step feature selection, lasso, ridge, and principal component analysis (PCA). We also made use of decision trees. The capacity of decision trees to mimic non-linear connections is one of its advantages. According to our EDA, journey duration, distance, and fare are all linearly connected over small distances, but this connection weakens over longer distances due to the involvement of other possible factors.Consequently, there may be in fact a non-linear relationship with tip, too.
+
+## 4.1 Preparation
+
+We prepped our data for modeling before developing our models by using one hot encoding, establishing training and testing sets, and scaling our data.
+
+### 4.1.1 One hot encoding 
+
+We employed one hot encoding to convert factor columns to numerical columns. All factors will be converted into a distinct boolean column by a single hot encoding.
