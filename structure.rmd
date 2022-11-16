@@ -9,3 +9,9 @@ We prepped our data for modeling before developing our models by using one hot e
 ### 4.1.1 One hot encoding 
 
 We employed one hot encoding to convert factor columns to numerical columns. All factors will be converted into a distinct boolean column by a single hot encoding.
+
+Post One Hot Encoding (OHE) we are now left with **`r dim(dataset)[2]` columns**. 
+
+### 4.1.2 Scaling variables
+
+Because the magnitude of the values may not be proportionate, we must scale the numerical variables in our datasets. For comparative reasons, we compute the mean and standard deviation of each numerical column.
