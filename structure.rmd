@@ -43,3 +43,5 @@ In order to eliminate any bias in test results while utilizing train data, the t
 |               in the dependent variable that is predictable from the independent variable(s).
 
 |               \n![](R-squared.svg)
+## 4.3 Tip Percentage
+## 4.4 Tip Amount
