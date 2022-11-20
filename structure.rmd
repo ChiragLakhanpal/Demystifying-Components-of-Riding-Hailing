@@ -18,3 +18,28 @@ Because the magnitude of the values may not be proportionate, we must scale the 
 ### 4.1.3 Test train split
 
 In order to eliminate any bias in test results while utilizing train data, the train-test split should be implemented before (most) data modeling. We randomly divided the dataset into 70% train and 30% test to replicate a train and test set.
+## 4.2 Evaluation Metrics
+
+*From Wikipedia*
+
+1. **Mean Absolute Percentage Error (MAPE)**
+
+|               The mean absolute percentage error (MAPE), also known as mean absolute percentage deviation (MAPD), is a measure of prediction 
+|               accuracy of a forecasting method in statistics. It usually expresses the accuracy as a ratio defined by the formula:
+
+|               \n![](Mape.svg)
+
+2. **Akaike information criterion (AIC)**
+
+|               The Akaike information criterion is an estimator of prediction error and thereby relative quality of statistical models for a 
+|               given set of data.Given a collection of models for the data, AIC estimates the quality of each model, relative to each of the  
+|               other models.:
+
+|               \n![](AIC.svg)
+
+3. **R squared (R^2^)**
+
+|               In statistics, the coefficient of determination, denoted R2 or r2 and pronounced "R squared", is the proportion of the variation 
+|               in the dependent variable that is predictable from the independent variable(s).
+
+|               \n![](R-squared.svg)
