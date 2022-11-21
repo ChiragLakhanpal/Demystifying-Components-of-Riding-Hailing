@@ -44,4 +44,17 @@ In order to eliminate any bias in test results while utilizing train data, the t
 
 |               \n![](R-squared.svg)
 ## 4.3 Tip Percentage
+
+### 4.3.1 Principal component analysis
+### 4.3.2 Linear regression
+**ANOVA tests on all the three models**
+**Treating Outliers and Modeling**
+### 4.3.3 Lasso regression
+### 4.3.4 Ridge regression
+### 4.3.5 Decision tree
+**Cost complexity criterion**
+##### Pruned Decision Tree
+### 4.3.6 Random Forest
+### 4.3.7 Summary and analysis
+
 ## 4.4 Tip Amount
