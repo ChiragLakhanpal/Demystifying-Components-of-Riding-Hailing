@@ -53,7 +53,20 @@ Variables graph. Variables that are positively associated point to the same side
 **Observations:** Even if the components explain 93.4% of the variance in the data, that may not necessarily mean that a good R^2^ or high coefficients will result. Hence to investigate this, we evaluated this; we proceed to build out Linear regression mode.
 
 ### 4.3.2 Linear regression
+From the results of the Principle component analysis, we constructed a linear model with tip percentage along with the first three high variability explainers and correlated values for 'Tip_Amount': fare_amount (-0.29), trip_distance (-0.28), and trip_duration (-0.17).
+
+
 **ANOVA tests on all the three models**
+The summary for three linear models is:
+
+ Fit | Model Equation | R^2 | ANOVA P-value | AIC |  
+ ----|----------------------|-----|-----------|-----|  
+ 1   | tip_perc ~ trip_duration | `r format(summary(fit1)$r.squared, digits=3)` | -- | `r AIC[,3][1]` |
+ 2   | tip_perc ~ trip_duration+fare_amount |`r format(summary(fit2)$r.squared, digits=3)` | `r format(anova(fit1,fit2,fit3)[6][["Pr(>F)"]][2])` | `r AIC[,3][2]` |
+ 3   | tip_perc ~ trip_duration+fare_amount+trip_distance |`r format(summary(fit3)$r.squared, digits=3)` | `r format(anova(fit1,fit2,fit3)[6][["Pr(>F)"]][3], digits=3)` | `r AIC[,3][3]` |
+
+
+**Observations:** Looking at the combination of p-value and r-squared, we conclude that fit3 performs slightly better than the other two fits. Hence, we check if there is an improvement in model 3 in the absence of outliers.
 **Treating Outliers and Modeling**
 ### 4.3.3 Lasso regression
 ### 4.3.4 Ridge regression
