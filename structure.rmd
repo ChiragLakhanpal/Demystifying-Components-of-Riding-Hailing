@@ -44,8 +44,14 @@ In order to eliminate any bias in test results while utilizing train data, the t
 
 |               \n![](R-squared.svg)
 ## 4.3 Tip Percentage
-
+The subsequent step post preparing our data is to employ a number of regression-based methods to extract insights from data, which we can then use to predict which result is likely to hold true for our target variable based on training data.
 ### 4.3.1 Principal component analysis
+We chose PCA as a variable reduction strategy because the majority of our variables were associated with one another and there were 48 features.
+
+Variables graph. Variables that are positively associated point to the same side of the plot. Negatively associated variables point to the graph's opposing sides.
+
+**Observations:** Even if the components explain 93.4% of the variance in the data, that may not necessarily mean that a good R^2^ or high coefficients will result. Hence to investigate this, we evaluated this; we proceed to build out Linear regression mode.
+
 ### 4.3.2 Linear regression
 **ANOVA tests on all the three models**
 **Treating Outliers and Modeling**
