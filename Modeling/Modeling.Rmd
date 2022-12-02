@@ -1,0 +1,66 @@
+---
+title: "Predicting Gratuity Amount for Taxi Drivers"
+author: "Chirag Lakhanpal, Shikha Sharma, Abhishek Pradhan"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    code_folding: hide
+    number_sections: false
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+<style type="text/css">
+  body{
+  font-size: 10pt;
+  font-family: 'Calibri';
+
+@media (prefers-color-scheme: dark) {
+  img {
+    opacity: .75;
+    transition: opacity .5s ease-in-out;
+  }
+  img:hover {
+    opacity: 1;
+  }
+  }
+}
+</style>
+
+```{r init, include=FALSE}
+# Installing necessary packages 
+library(arrow)
+library(ezids)
+library(knitr)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(reshape2)
+# knitr::opts_chunk$set(warning = F, results = "markup", message = F)
+knitr::opts_chunk$set(warning = F, results = "hide", message = F)
+#options(scientific=T, digits = 3) 
+options(scipen=9, digits = 3) 
+# ‘scipen’: integer. A penalty to be applied when deciding to print numeric values in fixed or exponential notation.  Positive values bias towards fixed and negative towards scientific notation: fixed notation will be preferred unless it is more than ‘scipen’ digits wider.
+# use scipen=999 to prevent scientific notation at all times
+#options(scipen=999)
+```
+
+```{r Reading Data, results='markup',echo=FALSE}
+
+# Loading main data for New York yellow taxi trips
+raw_data <- data.frame(read.csv('../Data/Yellow_Taxi_Trips_Data_Raw_Cleaned.csv'))
+
+str(raw_data)
+
+```
+
+
+# 4 Model Building
+
+## 4.1 Model Building Preparation
+
+
