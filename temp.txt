@@ -30,5 +30,39 @@ From Wikipedia*
 |               in the dependent variable that is predictable from the independent variable(s).
 
 |               \n![](R-squared.svg)
+From Wikipedia*
+
+1. **Mean Absolute Percentage Error (MAPE)**
+
+|               The mean absolute percentage error (MAPE), also known as mean absolute percentage deviation (MAPD), is a measure of prediction 
+|               accuracy of a forecasting method in statistics. It usually expresses the accuracy as a ratio defined by the formula:
+
+|               \n![](Mape.svg)
+
+2. **Akaike information criterion (AIC)**
+
+|               The Akaike information criterion is an estimator of prediction error and thereby relative quality of statistical models for a 
+|               given set of data.Given a collection of models for the data, AIC estimates the quality of each model, relative to each of the  
+|               other models.:
+
+|               \n![](AIC.svg)
+
+3. **R squared (R^2^)**
+
+|               In statistics, the coefficient of determination, denoted R2 or r2 and pronounced "R squared", is the proportion of the variation 
+|               in the dependent variable that is predictable from the independent variable(s).
+
+|               \n![](R-squared.svg)
+Lasso regression is a form of regularization (L1) approach that might result in coefficients that are canceled out (in other words, some of the features are completely neglected for the evaluation of output). As a result, it not only helps to reduce over-fitting, but it may also aid in feature selection.
+
+As we increase the value of lambda, the bias increase and  variance decrease, so we Iterated through a set of lambda values to find the optimum value. The graph below shows how lasso reduces the value of unnecessary attribute coefficients to 0. Only the five attributes with the greatest coefficient values are indicated for greater visibility.
+
+he coefficients that best suit the data are discovered using the least squares approach. It should also determine the unbiased coefficients as a further requirement. Here, unbiased refers to the fact that OLS ignores the independent variables' relative importance. A given data set's coefficients are easily found. In other words, the lowest "Residual Sum of Squares (RSS)" can only be obtained from one set of betas. It therefore poses a question whether the model with the lowest RSS is actually the better model.
+
+In a sense, OLS offers the model with the highest variance and the lowest bias, and it gets more complex as the number of variables rises. Although it is stationary and never moves, we still want a model with little bias and little variance. This void can be filled by Ridge, which is also known as regularization. Since the ridge regression penalizes coefficients, the least effective ones in the estimation will "shrink" the quickest. In ridge regression, the lambda parameter (penalizing factor) can be adjusted to alter the model coefficients.
+
+The classification and regression tree (CART) methodology is one of the earliest methods for creating regression trees, however there are many more. A data set is divided into smaller subgroups by basic regression trees, which then fit a straightforward constant to each observation in each segment. By using successive binary partitions (also known as recursive partitioning) depending on several predictors, the partitioning is accomplished.
+
+To enhance prediction performance on certain unknown data, a balance in the depth and complexity of the tree is generally required. To achieve this balance, we generally create a very big tree and then prune it back to identify an ideal subtree. We identify the best subtree by applying a cost complexity parameter (α) that penalizes our objective function for the number of terminal nodes in the tree.
 
 
