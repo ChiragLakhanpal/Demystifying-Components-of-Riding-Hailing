@@ -9,5 +9,5 @@ Kindly explore respective directory to access the project links or vist below.
 
 ##### Main Project Links
 
-EDA - 
-Modeling - 
+* EDA - 
+* Modeling - 
