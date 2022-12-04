@@ -66,3 +66,6 @@ The classification and regression tree (CART) methodology is one of the earliest
 To enhance prediction performance on certain unknown data, a balance in the depth and complexity of the tree is generally required. To achieve this balance, we generally create a very big tree and then prune it back to identify an ideal subtree. We identify the best subtree by applying a cost complexity parameter (α) that penalizes our objective function for the number of terminal nodes in the tree.
 
 
+Finally, we apply our last model to further obtained enhanced results. The Random Forest builds on top of the classical deccission tree by a method called **Bagging**
+Node purity is the total decrease in residual sum of squares when splitting on a variable averaged over all trees (i.e. how well a predictor decreases variance). Importance gives you what the model has learnt. The above plot shows, for each variable, how important it is in classifying the data. The Mean Decrease Accuracy plot expresses how much accuracy the model losses by excluding each variable. The more the accuracy suffers, the more important the variable is for the successful classification. The variables are presented from descending importance.
+
