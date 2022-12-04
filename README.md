@@ -5,9 +5,5 @@
 
 ##### **We wanted to see how parameters like pick-up location, distance, number of passengers, and drop-off location impact the tipping behavior of NYC taxi drivers.**
 
-Kindly explore respective directory to access the project links or vist below.
-
-##### Main Project Links
-
-* EDA - 
-* Modeling - 
+* Kindly explore respective directory to access the project links.
+* Please note - If you intend to run the project on your personal machine, kindly visit the link provided in the data folder to download the dataset and place the parquet into the same location.
