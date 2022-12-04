@@ -69,3 +69,14 @@ To enhance prediction performance on certain unknown data, a balance in the dept
 Finally, we apply our last model to further obtained enhanced results. The Random Forest builds on top of the classical deccission tree by a method called **Bagging**
 Node purity is the total decrease in residual sum of squares when splitting on a variable averaged over all trees (i.e. how well a predictor decreases variance). Importance gives you what the model has learnt. The above plot shows, for each variable, how important it is in classifying the data. The Mean Decrease Accuracy plot expresses how much accuracy the model losses by excluding each variable. The more the accuracy suffers, the more important the variable is for the successful classification. The variables are presented from descending importance.
 
+
+As we increase the value of lambda, the bias increase and  variance decrease, so we Iterated through a set of lambda values to find the optimum value. The graph below shows how lasso reduces the value of unnecessary attribute coefficients to 0. Only the five attributes with the greatest coefficient values are indicated for greater visibility.
+
+The unpruned decision tree is the optimal model when aiming for a low MAPE, low AIC, and high r-squared. It is crucial to remember that when comparing the different models, the MAPE number is typically the same, hovering around 0.18 - 0.20, which denotes a 80-82 % accuracy. But all of the models' r-squared values are quite low, explaining about 7% to 15% of the variance in our dependent variable. As a result, this suggests that the models are neither thorough nor accurate fits.
+
+## 4.4 Tip Amount
+The subsequent step post preparing our data is to employ a number of regression-based methods to extract insights from data, which we can then use to predict which result is likely to hold true for our target variable based on training data.
+
+### 4.4.1 Principal component analysis
+
+We chose PCA as a variable reduction strategy because the majority of our variables were associated with one another and there were 48 features.
