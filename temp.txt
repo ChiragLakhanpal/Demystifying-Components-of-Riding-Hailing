@@ -252,3 +252,37 @@ Finally, we apply our last model to further obtained enhanced results. The Rando
 ### 4.3.7 Summary and analysis
 
 The unpruned decision tree is the optimal model when aiming for a low MAPE, low AIC, and high r-squared. It is crucial to remember that when comparing the different models, the MAPE number is typically the same, hovering around 0.18 - 0.20, which denotes a 80-82 % accuracy. But all of the models' r-squared values are quite low, explaining about 7% to 15% of the variance in our dependent variable. As a result, this suggests that the models are neither thorough nor accurate fits.
+##### One of the most famous pictures of New York is the wave of yellow taxi taxis flooding the streets. So, where better to research taxi cab data than New York City? This is exactly what we intended to do. From 2009 until the present, the NYC Taxi and Limousine Commission (TLC) has gathered massive amounts of data for every taxi travel in New York City. We set out to get our hands dirty and put the sophisticated analysis,we learnt over the semester to work.
+
+
+##### **We wanted to see how parameters like pick-up location, distance, number of passengers, and drop-off location impact the tipping behavior of NYC taxi drivers.**
+
+
+
+## 2 Data Preparation
+
+### 2.1 Data Gathering
+
+```{r Reading Data, results='markup',echo=FALSE}
+
+# Loading main data for New York yellow taxi trips
+raw_data <- data.frame(read_parquet('../Data/yellow_tripdata_2022-06.parquet'))
+
+# Loading main data for Zone information
+zone_lookup <- data.frame(read.csv("../Data/Taxi_Zone_Lookup.csv"))
+
+data_des <- data.frame(read.csv('../Data/Data_Definitions.csv'))
+
+kable(str(raw_data),bso='bordered', title = 'Glimpse of Raw Data')
+
+```
+
+##### **Comments** :  At a first glance, there are total `r nrow(raw_data)*ncol(raw_data)` observation across `r nrow(raw_data)` and `r ncol(raw_data)` variables in which 7 are categorical and 12 are numerical variables. The data was procured from the NYC Open Source GIS website - https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page.
+
+### 2.2 Data Descriptors
+
+```{r, results='markup',echo=FALSE}
+xkabledply((data_des),bso='bordered', title = 'Zones', pos = 'center')
+```
+
+##### **Comments** : There are total 19 variables but not all are used in our analysis, we will shortly remove the irreverent columns. Some major columns are vital for this analysis are Trip distance, Trip duration, Fare amount , Tip amount, Passenger count and Vendor ID.
