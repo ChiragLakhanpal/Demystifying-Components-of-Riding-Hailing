@@ -163,9 +163,11 @@ test   <- dataset[!sample, ]
 
 colnames(train)[colnames(train) == 'PULocation_Staten Island'] = "PULocation_Staten_Island"
 colnames(train)[colnames(train) == 'DOLocation_Staten Island'] = "DOLocation_Staten_Island"
-colnames(test)[colnames(train) == 'PULocation_Staten Island'] =  "PULocation_Staten_Island"
-colnames(test)[colnames(train) == 'DOLocation_Staten Island'] = "DOLocation_Staten_Island"
+colnames(test)[colnames(test) == 'PULocation_Staten Island'] =  "PULocation_Staten_Island"
+colnames(test)[colnames(test) == 'DOLocation_Staten Island'] = "DOLocation_Staten_Island"
 
+
+train
 ```
 
 Number of rows of observations in training dataset is **`r nrow(train)`** and in testing dataset are **`r nrow(test)`** post split.
@@ -351,7 +353,7 @@ Even after treating the outliers in our model three fit, There is little to no d
 
 Lasso regression is a form of regularization (L1) approach that might result in coefficients that are canceled out (in other words, some of the features are completely neglected for the evaluation of output). As a result, it not only helps to reduce over-fitting, but it may also aid in feature selection.
 
-As we increase the value of lambda, the bias increase and  variance decrease, so we Iterated through a set of lambda values to find the optimum value. The graph below shows how lasso reduces the value of unnecessary attribute coefficients to 0. Only the five attributes with the greatest coefficient values are indicated for greater visibility.
+As we increase the value of lambda, the bias increase and  variance decrease, so we Iterated through a set of lambda values to find the optimum value. The graph below shows how lasso reduces the value of unnecessary attribute coefficients to 0. Only the five attributes with the greatest coefficient values are indicated for greater visibility
 
 ```{r lasso_tipperc, echo=FALSE}
 
@@ -550,7 +552,7 @@ To enhance prediction performance on certain unknown data, a balance in the dept
 ```{r Decision tree, results='markup',echo=FALSE}
 
 tip_perc_dt <- rpart(tip_perc ~ trip_distance + fare_amount + tip_amount + tolls_amount + trip_duration + VendorID_1 
-+ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + `PULocation_Staten_Island` + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens +  DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data=train, method='anova',cp = 0,)
++ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + PULocation_Staten_Island + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens +  DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data=train, method='anova',cp = 0,)
 
 rpart.plot(tip_perc_dt,extra = 100,type = 1,snip = TRUE)
 ```
@@ -570,13 +572,16 @@ Pruning the decision tree to 16 variables gives a much better model as seen belo
 
 ```{r Pruned Tree, results='markup',echo=FALSE}
 tip_perc_pt <- rpart(tip_perc ~ trip_distance + fare_amount + tip_amount + tolls_amount + trip_duration + VendorID_1 
-+ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + `PULocation_Staten_Island` + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens +  DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data=train, method='anova')
++ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + PULocation_Staten_Island + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens +  DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data=train, method='anova')
 
 rpart.plot(tip_perc_pt,extra = 100,type = 1,snip = TRUE)
 ```
 
 ```{r,echo=FALSE}
 plotcp(tip_perc_pt)
+```
+```{r}
+test
 ```
 
 
