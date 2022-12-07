@@ -1,0 +1,1159 @@
+---
+title: "Predicting Gratuity Amount for Taxi Drivers"
+author: "Chirag Lakhanpal, Shikha Sharma, Abhishek Pradhan"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    code_folding: hide
+    number_sections: false
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+<style type="text/css">
+  body{
+  font-size: 10pt;
+  font-family: 'Calibri';
+
+@media (prefers-color-scheme: dark) {
+  img {
+    opacity: .75;
+    transition: opacity .5s ease-in-out;
+  }
+  img:hover {
+    opacity: 1;
+  }
+  }
+}
+</style>
+
+```{r init, include=FALSE}
+list.of.packages <- c("arrow","ezids","knitr","dplyr","lubridate","ggplot2","reshape2","caret",
+                      "fastDummies","dataPreparation","factoextra","AICcmodavg","modelr","glmnet","rpart","MLmetrics","plotmo","rpart","rpart.plot",
+                      "tree","randomForest")
+
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+#install.packages("tree")
+#remotes::install_github("physicsland/ezids")
+#remove.packages("tree")
+#install.packages("randomForest")
+
+# Installing necessary packages 
+library(arrow)
+library(ezids)
+library(knitr)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(reshape2)
+library(caret)
+library(fastDummies)
+library(dataPreparation)
+library(factoextra)
+library(AICcmodavg)
+library(modelr)
+library(glmnet)
+library(rpart)
+library(MLmetrics)
+library(plotmo) 
+library(rpart)
+library(rpart.plot)
+library(tree)
+library(randomForest)
+# knitr::opts_chunk$set(warning = F, results = "markup", message = F)
+knitr::opts_chunk$set(warning = F, results = "hide", message = F)
+#options(scientific=T, digits = 3) 
+options(scipen=9, digits = 3) 
+# ‘scipen’: integer. A penalty to be applied when deciding to print numeric values in fixed or exponential notation.  Positive values bias towards fixed and negative towards scientific notation: fixed notation will be preferred unless it is more than ‘scipen’ digits wider.
+# use scipen=999 to prevent scientific notation at all times
+#options(scipen=999)
+```
+
+```{r Reading Data, results='markup',echo=FALSE}
+
+# Loading main data for New York yellow taxi trips
+dataset <- data.frame(read.csv('../Data/Yellow_Taxi_Trips_Data_Raw_Cleaned.csv'))
+```
+
+```{r difining data types, echo=FALSE}
+
+# Converting Variables into Categorical Variables
+
+colnames(dataset)
+
+dataset$VendorID <- as.factor(dataset$VendorID)
+dataset$passenger_count <- as.factor(dataset$passenger_count)
+dataset$RatecodeID <- as.factor(dataset$RatecodeID)
+dataset$PULocation <- as.factor(dataset$PULocation)
+dataset$DOLocation <- as.factor(dataset$DOLocation)
+dataset$day <- as.factor(dataset$day)
+dataset$PU_time_of_day <- as.factor(dataset$PU_time_of_day)
+dataset$DO_time_of_day <- as.factor(dataset$DO_time_of_day)
+
+# Removing Payment type as we don't need it as all the tips considered are through credit card
+
+dataset <- within(dataset, rm(payment_type))
+
+```
+
+
+# 4 Model Building
+
+We began by selecting linear (univariate and multivariate) regression models to examine how they fit our data. Linear regression is a conventional, common approach that may explain the association with tip well, so we chose to test it first. To strengthen our linear model, we also used step-by-step feature selection, lasso, ridge, and principal component analysis (PCA). We also made use of decision trees. The capacity of decision trees to mimic non-linear connections is one of its advantages. According to our EDA, journey duration, distance, and fare are all linearly connected over small distances, but this connection weakens over longer distances due to the involvement of other possible factors.Consequently, there may be in fact a non-linear relationship with tip, too.
+
+## 4.1 Preparation
+
+We prepped our data for modeling before developing our models by using one hot encoding, establishing training and testing sets, and scaling our data.
+
+### 4.1.1 One hot encoding 
+
+We employed one hot encoding to convert factor columns to numerical columns. All factors will be converted into a distinct boolean column by a single hot encoding.
+
+```{r OHE, echo=FALSE}
+
+colnames(dataset)
+
+# Extracting categorical vairables
+
+fact <- c("VendorID","passenger_count","RatecodeID","PULocation", "DOLocation","day","PU_time_of_day","DO_time_of_day")
+
+dataset <- dummy_cols(dataset, select_columns = fact)
+
+# Removing the orignal vairable
+
+dataset <- dataset[,!names(dataset) %in% fact]
+
+```
+
+
+Post One Hot Encoding (OHE) we are now left with **`r dim(dataset)[2]` columns**. 
+
+### 4.1.2 Scaling variables
+
+Because the magnitude of the values may not be proportionate, we must scale the numerical variables in our datasets. For comparative reasons, we compute the mean and standard deviation of each numerical column.
+
+```{r Scaling,results='markup',echo=FALSE}
+nums <- c('trip_distance','fare_amount','tip_amount','tolls_amount')
+
+# Mean and SD of numerical columns
+
+build_scales(data_set = dataset, cols = nums, verbose = TRUE)
+
+dataset <- dataset %>%           # Applying functions of dplyr
+  mutate_at(nums, ~(scale(.) %>% as.vector))
+```
+
+### 4.1.3 Test train split
+
+In order to eliminate any bias in test results while utilizing train data, the train-test split should be implemented before (most) data modeling. We randomly divided the dataset into 70% train and 30% test to replicate a train and test set.
+
+```{r Spliting, echo=FALSE}
+set.seed(1)
+
+#train and test split (Since we have enough data with can split our data into train (80%) & test (20%))
+sample <- sample(c(TRUE, FALSE), nrow(dataset), replace=TRUE, prob=c(0.7,0.3))
+train  <- dataset[sample, ]
+test   <- dataset[!sample, ]
+
+colnames(train)[colnames(train) == 'PULocation_Staten Island'] = "PULocation_Staten_Island"
+colnames(train)[colnames(train) == 'DOLocation_Staten Island'] = "DOLocation_Staten_Island"
+colnames(test)[colnames(test) == 'PULocation_Staten Island'] =  "PULocation_Staten_Island"
+colnames(test)[colnames(test) == 'DOLocation_Staten Island'] = "DOLocation_Staten_Island"
+
+
+train
+```
+
+Number of rows of observations in training dataset is **`r nrow(train)`** and in testing dataset are **`r nrow(test)`** post split.
+
+## 4.2 Evaluation Metrics
+
+*From Wikipedia*
+
+1. **Mean Absolute Percentage Error (MAPE)**
+
+|               The mean absolute percentage error (MAPE), also known as mean absolute percentage deviation (MAPD), is a measure of prediction 
+|               accuracy of a forecasting method in statistics. It usually expresses the accuracy as a ratio defined by the formula:
+
+|               \n![](Mape.svg)
+
+2. **Akaike information criterion (AIC)**
+
+|               The Akaike information criterion is an estimator of prediction error and thereby relative quality of statistical models for a 
+|               given set of data.Given a collection of models for the data, AIC estimates the quality of each model, relative to each of the  
+|               other models.:
+
+|               \n![](AIC.svg)
+
+3. **R squared (R^2^)**
+
+|               In statistics, the coefficient of determination, denoted R2 or r2 and pronounced "R squared", is the proportion of the variation 
+|               in the dependent variable that is predictable from the independent variable(s).
+
+|               \n![](R-squared.svg)
+
+## 4.3 Tip Percentage
+
+The subsequent step post preparing our data is to employ a number of regression-based methods to extract insights from data, which we can then use to predict which result is likely to hold true for our target variable based on training data.
+
+### 4.3.1 Principal component analysis
+
+We chose PCA as a variable reduction strategy because the majority of our variables were associated with one another and there were 48 features.
+
+```{r pca,echo=FALSE}
+
+# get principal components using prcomp, we have used scale = F as the data is already scaled
+pr.out =prcomp(train[,-7] %>% select_if(is.numeric), scale = F)
+summary(pr.out)
+
+fviz_eig(pr.out, addlabels = TRUE)
+
+```
+
+
+
+
+```{r,echo=FALSE}
+fviz_pca_var(pr.out,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
+```
+
+Variables graph. Variables that are positively associated point to the same side of the plot. Negatively associated variables point to the graph's opposing sides.
+
+**Observations:** Even if the components explain 93.4% of the variance in the data, that may not necessarily mean that a good R^2^ or high coefficients will result. Hence to investigate this, we evaluated this; we proceed to build out Linear regression mode.
+
+### 4.3.2 Linear regression
+
+From the results of the Principle component analysis, we constructed a linear model with tip percentage along with the first three high variability explainers and correlated values for 'Tip_Amount': fare_amount (-0.29), trip_distance (-0.28), and trip_duration (-0.17).
+
+```{r Linear Models,echo=FALSE}
+#Taking best three variables correlated with tip perc based on Pearson Correlation
+
+#linear model of tip_perc ~ trip_duration
+fit1 <- lm(tip_perc ~ trip_duration, data = train )
+#summary(fit1)
+# vif(fit1)
+# plot(fit1)
+
+
+#linear model of tip_perc ~ trip_duration+fare_amount
+fit2 <- lm(tip_perc ~ trip_duration+fare_amount, data = train )
+#summary(fit2)
+# vif(fit2)
+# plot(fit2)
+
+
+#linear model of tip_perc ~ trip_duration+fare_amount+trip_distance
+fit3 <- lm(tip_perc ~ trip_duration+fare_amount+trip_distance, data = train )
+#summary(fit3)
+#vif(fit3)
+#plot(fit3)
+
+plot(fit1)
+plot(fit2)
+plot(fit3)
+```
+
+```{r AIC of Linear Models, echo=FALSE}
+#define list of models
+models <- list(fit1, fit2, fit3)
+
+#specify model names
+mod.names <- c('trip_duration.trip_duration.fare_amount.trip_distance', 'trip_duration.trip_duration.fare_amount', 'trip_duration.trip_duration')
+
+#calculate AIC of each model
+AIC <- aictab(cand.set = models, modnames = mod.names)
+```
+
+**ANOVA tests on all the three models**
+
+The summary for three linear models is:
+
+ Fit | Model Equation | R^2 | ANOVA P-value | AIC |  
+ ----|----------------------|-----|-----------|-----|  
+ 1   | tip_perc ~ trip_duration | `r format(summary(fit1)$r.squared, digits=3)` | -- | `r AIC[,3][1]` |
+ 2   | tip_perc ~ trip_duration+fare_amount |`r format(summary(fit2)$r.squared, digits=3)` | `r format(anova(fit1,fit2,fit3)[6][["Pr(>F)"]][2])` | `r AIC[,3][2]` |
+ 3   | tip_perc ~ trip_duration+fare_amount+trip_distance |`r format(summary(fit3)$r.squared, digits=3)` | `r format(anova(fit1,fit2,fit3)[6][["Pr(>F)"]][3], digits=3)` | `r AIC[,3][3]` |
+
+
+**Observations:** Looking at the combination of p-value and r-squared, we conclude that fit3 performs slightly better than the other two fits. Hence, we check if there is an improvement in model 3 in the absence of outliers.
+
+```{r, include=TRUE, echo=FALSE}
+#Prediction
+
+model.final.pred <- add_predictions(test,fit3)
+
+# Model performance metrics
+
+results_df <- data.frame(
+  technique = 'Linear(3 vars with best cor-coeffs)',
+  dependent = 'tip_perc',
+  mape = MAPE(model.final.pred$tip_perc, model.final.pred$pred),
+  Rsquare = caret::R2(model.final.pred$pred, model.final.pred$tip_perc),
+  AIC = AIC[,3][3]
+)
+
+
+```
+
+**Treating Outliers and Modeling**
+
+```{r Removing Outliers, echo=FALSE}
+
+train_no <- train
+
+outlierKD2(train_no,var = trip_duration,boxplt = T,rm = T)
+outlierKD2(train_no,var = fare_amount,boxplt = T,rm = T)
+outlierKD2(train_no,var = trip_distance,boxplt = T, rm = T)
+
+model_no <- lm(tip_perc ~ trip_duration+fare_amount+trip_distance, data = train_no)
+
+summary(model_no)
+
+predictions <- predict(model_no, test)
+```
+
+```{r AIC of Linear Models (NO), echo=FALSE}
+
+#define list of models
+models <- list(model_no)
+
+#specify model names
+mod.names <- c('Model 3 without outliers')
+
+#calculate AIC of each model
+AIC <- aictab(cand.set = models, modnames = mod.names)
+
+```
+
+```{r}
+# Model performance metrics
+results_df <- rbind(results_df, data.frame(
+  technique = "Linear-treated outlier",
+  dependent = "tip_perc",
+  mape = MAPE(test$tip_perc, predictions),
+  Rsquare = caret::R2(predictions, test$tip_perc),
+  AIC = AIC[,3]
+))
+results_df
+```
+
+Even after treating the outliers in our model three fit, There is little to no difference in the results, and the r-squared and MAPE values remains `r format(results_df[2, 4], digits=3)` and `r format(results_df[2, 3], digits=4)`.
+
+### 4.3.3 Lasso regression
+
+Lasso regression is a form of regularization (L1) approach that might result in coefficients that are canceled out (in other words, some of the features are completely neglected for the evaluation of output). As a result, it not only helps to reduce over-fitting, but it may also aid in feature selection.
+
+As we increase the value of lambda, the bias increase and  variance decrease, so we Iterated through a set of lambda values to find the optimum value. The graph below shows how lasso reduces the value of unnecessary attribute coefficients to 0. Only the five attributes with the greatest coefficient values are indicated for greater visibility
+
+```{r lasso_tipperc, echo=FALSE}
+
+#reduced_train <- sample_n(train, 15000)
+#reduced_test <- sample_n(test, 15000)
+
+# Prep model parameters
+x=model.matrix(tip_perc~.-tip_perc-dropoff_time-pickup_time,train)[,-1]
+
+y = train %>%
+  select(tip_perc) %>%
+  unlist() %>%
+  as.numeric()
+
+# Find the best lambda using 10 cross-validation
+set.seed(123) 
+
+#Note that setting alpha equal to 0 is equivalent to using ridge regression and setting alpha to some value between 0 and 1 is equivalent to using an elastic net. 
+
+lasso_cv <- cv.glmnet(x, y, alpha = 1, standardize = FALSE)
+
+# Display the best lambda value
+best_alpha <- lasso_cv$lambda.min
+
+
+# Fit the final model on the training data
+lasso_model <- glmnet(x, y, alpha = 1, lambda = best_alpha, standardize = FALSE)
+
+# # Make predictions on the test data
+x.test <- model.matrix(tip_perc~.-tip_perc-dropoff_time-pickup_time, test)[,-1]
+predictions <- lasso_model %>% predict(x.test) %>% as.vector()
+
+#AIC 
+tLL <- lasso_model$nulldev - deviance(lasso_model)
+k <- lasso_model$df
+n <- lasso_model$nobs
+
+AICc <- -tLL+2*k+2*k*(k+1)/(n-k-1)
+AICc
+
+# Model performance metrics
+results_df <- rbind(results_df, data.frame(
+  technique = "Lasso",
+  dependent = "tip_perc",
+  mape = MAPE(test$tip_perc, predictions),
+  Rsquare = caret::R2(predictions, test$tip_perc),
+  AIC = paste(AICc,'*')
+))
+```
+
+```{r Lassocoeff, results='markup',echo=FALSE}
+
+# Dsiplay regression coefficients
+coef(lasso_model)
+
+```
+
+
+```{r ,results='markup',echo=FALSE}
+fit.lasso <- glmnet(x, y, family="gaussian", alpha=1)
+plot_glmnet(fit.lasso, label=10)
+```
+
+As expected the *fare amount* and the *tip amount* survives the longest. However, it also surprising to see how long did the **Rate Code ID** prevails, especially for Newark Airport (code 3) which is understandable.
+
+```{r LassoMSE , results='markup',echo=FALSE}
+
+# Plot lambda CV
+plot(lasso_cv)
+
+```
+
+The lambda value that minimizes the test MSE turns out to be **`r lasso_cv$lambda.min`** .
+
+```{r LassoPredictions, results='markup', echo=FALSE}
+# Plot predicted vs actual values
+ggplot(test, aes(x =test$tip_perc ,y = predictions)) +
+  geom_point() +
+  labs(title="Predicted vs Actual Values",
+       x="Actual Tip Percentage  ", y = "Predicted Tip Percentage")
+results_df
+```
+
+As with before, the r-squared is only 11%, which means there is room for a lot improvement.
+
+
+### 4.3.4 Ridge regression
+
+The coefficients that best suit the data are discovered using the least squares approach. It should also determine the unbiased coefficients as a further requirement. Here, unbiased refers to the fact that OLS ignores the independent variables' relative importance. A given data set's coefficients are easily found. In other words, the lowest "Residual Sum of Squares (RSS)" can only be obtained from one set of betas. It therefore poses a question whether the model with the lowest RSS is actually the better model.
+
+In a sense, OLS offers the model with the highest variance and the lowest bias, and it gets more complex as the number of variables rises. Although it is stationary and never moves, we still want a model with little bias and little variance. This void can be filled by Ridge, which is also known as regularization. Since the ridge regression penalizes coefficients, the least effective ones in the estimation will "shrink" the quickest. In ridge regression, the lambda parameter (penalizing factor) can be adjusted to alter the model coefficients.
+
+Again, Only the five attributes with the greatest coefficient values are indicated for greater visibility.
+
+```{r ridge_tipperc, echo=FALSE}
+
+#reduced_train <- sample_n(train, 15000)
+#reduced_test <- sample_n(test, 15000)
+
+# Prep model parameters
+x=model.matrix(tip_perc~.-tip_perc-dropoff_time-pickup_time,train)[,-1]
+
+y = train %>%
+  select(tip_perc) %>%
+  unlist() %>%
+  as.numeric()
+
+# Find the best lambda using 10 cross-validation
+set.seed(123) 
+
+#Note that setting alpha equal to 0 is equivalent to using ridge regression and setting alpha to some value between 0 and 1 is equivalent to using an elastic net. 
+
+ridge_cv <- cv.glmnet(x, y, alpha = 0, standardize = FALSE)
+
+# Display the best lambda value
+best_alpha <- ridge_cv$lambda.min
+
+# Fit the final model on the training data
+ridge_model <- glmnet(x, y, alpha = 0, lambda = best_alpha, standardize = FALSE)
+
+# # Make predictions on the test data
+x.test <- model.matrix(tip_perc~.-tip_perc-dropoff_time-pickup_time, test)[,-1]
+predictions <- ridge_model %>% predict(x.test) %>% as.vector()
+
+#AIC 
+tLL <- ridge_model$nulldev - deviance(ridge_model)
+k <- ridge_model$df
+n <- ridge_model$nobs
+
+AICc <- -tLL+2*k+2*k*(k+1)/(n-k-1)
+AICc
+
+# Model performance metrics
+results_df <- rbind(results_df, data.frame(
+  technique = "Ridge",
+  dependent = "tip_perc",
+  mape = MAPE(test$tip_perc, predictions),
+  Rsquare = caret::R2(predictions, test$tip_perc),
+  AIC = paste(AICc,'*')
+))
+
+results_df
+```
+
+```{r Ridgecoeff, results='markup',echo=FALSE}
+
+# Dsiplay regression coefficients
+coef(ridge_model)
+
+```
+
+```{r ,results='markup',echo=FALSE}
+fit.ridge <- glmnet(x, y, family="gaussian", alpha=0)
+plot_glmnet(fit.ridge, label=10)
+```
+
+**Observations: **The plot shows the whole path of variables as they shrink towards zero. The **Pick up** and the **Drop Off Location** survives the longest as they shrink to zero.
+
+```{r Ridgemse, results='markup',echo=FALSE}
+
+colnames(train)
+
+# Plot lambda CV
+plot(ridge_cv)
+
+```
+
+The lambda value that minimizes the test MSE turns out to be **`r ridge_cv$lambda.min`** .
+
+```{r RidgePredictions, results='markup', echo=FALSE}
+# Plot predicted vs actual values
+ggplot(test, aes(x =test$tip_perc ,y = predictions)) +
+  geom_point() +
+  labs(title="Predicted vs Actual Values",
+       x="Actual Tip Percentage  ", y = "Predicted Tip Percentage")
+
+```
+
+
+```{r plot_r2_ridge_ratio, include=TRUE, echo= FALSE}
+# Plot graph for glmnet
+fit = glmnet(x, y, alpha = 0)
+plot(fit, xvar = "dev", label = TRUE)
+```
+
+The Plot shows that all the vairables explain ~11% (~0.108 point on the plot) of the variance in the data. Same is bolstered by the R^2^ value of the model.
+
+### 4.3.5 Decision tree
+
+The classification and regression tree (CART) methodology is one of the earliest methods for creating regression trees, however there are many more. A data set is divided into smaller subgroups by basic regression trees, which then fit a straightforward constant to each observation in each segment. By using successive binary partitions (also known as recursive partitioning) depending on several predictors, the partitioning is accomplished.
+
+**Cost complexity criterion**
+
+To enhance prediction performance on certain unknown data, a balance in the depth and complexity of the tree is generally required. To achieve this balance, we generally create a very big tree and then prune it back to identify an ideal subtree. We identify the best subtree by applying a cost complexity parameter (α) that penalizes our objective function for the number of terminal nodes in the tree.
+
+```{r Decision tree, results='markup',echo=FALSE}
+
+tip_perc_dt <- rpart(tip_perc ~ trip_distance + fare_amount + tip_amount + tolls_amount + trip_duration + VendorID_1 
++ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + PULocation_Staten_Island + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens +  DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data=train, method='anova',cp = 0,)
+
+rpart.plot(tip_perc_dt,extra = 100,type = 1,snip = TRUE)
+```
+
+When we consider all the variables while building our decision tree, the model quickly becomes overfitted.
+
+```{r,echo=FALSE}
+plotcp(tip_perc_dt)
+abline(v = 12, lty = "dashed")
+```
+
+The above shows the compares the error over the range of α's (cost complexity - cp value at the bottom X-axis). The upper X-axis gives the number of nodes. We can see returns deminish after around 16 leafs (dashed vertical line.
+
+##### Pruned Decision Tree
+
+Pruning the decision tree to 16 variables gives a much better model as seen below.
+
+```{r Pruned Tree, results='markup',echo=FALSE}
+tip_perc_pt <- rpart(tip_perc ~ trip_distance + fare_amount + tip_amount + tolls_amount + trip_duration + VendorID_1 
++ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + PULocation_Staten_Island + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens +  DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data=train, method='anova')
+
+rpart.plot(tip_perc_pt,extra = 100,type = 1,snip = TRUE)
+```
+
+```{r,echo=FALSE}
+plotcp(tip_perc_pt)
+```
+```{r}
+test
+```
+
+
+```{r meterics,echo=FALSE}
+
+# Original
+# Predict test values using tree
+tree_perc_pred = predict(tip_perc_dt, newdata = test)
+
+# Obtain MSE
+tree_perc_mse = (sum((tree_perc_pred - test$tip_perc)^2)) / nrow(test)
+
+# Print MSE
+tree_perc_mse
+
+# Obtain MAPE and r2
+mape_ratio = MAPE(test$tip_perc, tree_perc_pred)
+Rsquare_ratio = caret::R2(tree_perc_pred, test$tip_perc)
+
+# Model performance metrics
+results_df <- rbind(results_df, data.frame(
+  technique = "Decision Tree",
+  dependent = "tip_perc",
+  mape = mape_ratio,
+  Rsquare = Rsquare_ratio,
+  AIC = '-'
+))
+
+# Prune
+# Predict test values using tree
+tree_perc_pred_prune = predict(tip_perc_pt, newdata = test)
+
+# Obtain MSE
+tree_perc_mse_prune = (sum((tree_perc_pred_prune - test$tip_perc)^2)) / nrow(test)
+
+# Print MSE
+
+tree_perc_mse_prune
+
+# Obtain MAPE and r2
+mape_perc_prune = MAPE(test$tip_perc, tree_perc_pred_prune)
+Rsquare_perc_prune = caret::R2(tree_perc_pred_prune, test$tip_perc)
+
+# Model performance metrics
+results_df <- rbind(results_df, data.frame(
+  technique = "Decision Tree (Prune)",
+  dependent = "tip_perc",
+  mape = mape_perc_prune,
+  Rsquare = Rsquare_perc_prune,
+  AIC = '-'
+))
+
+xkabledply(results_df, title = 'Grand Summary of All Models')
+
+results_df
+
+```
+
+### 4.3.6 Random Forest
+
+Finally, we apply our last model to further obtained enhanced results. The Random Forest builds on top of the classical deccission tree by a method called **Bagging**
+
+```{r Random Forest, echo=FALSE}
+
+colnames(train)[colnames(train) == 'PULocation_Staten Island'] = "PULocation_Staten_Island"
+colnames(train)[colnames(train) == 'DOLocation_Staten Island'] = "DOLocation_Staten_Island"
+colnames(test)[colnames(train) == 'PULocation_Staten Island'] =  "PULocation_Staten_Island"
+colnames(test)[colnames(train) == 'DOLocation_Staten Island'] = "DOLocation_Staten_Island"
+
+rf.fit <- randomForest(tip_perc ~  trip_distance + fare_amount + tolls_amount + trip_duration + VendorID_1 
++ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + PULocation_Staten_Island + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens + DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data = train, ntree=100,keep.forest=FALSE, importance=TRUE)
+
+rf.fit
+
+```
+```{r ploting results,echo=FALSE}
+ImpData <- as.data.frame(importance(rf.fit))
+ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +
+  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +
+  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +
+  theme_light() +
+  coord_flip() +
+  theme(
+    legend.position="bottom",
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+```
+
+
+
+Node purity is the total decrease in residual sum of squares when splitting on a variable averaged over all trees (i.e. how well a predictor decreases variance). Importance gives you what the model has learnt. The above plot shows, for each variable, how important it is in classifying the data. The Mean Decrease Accuracy plot expresses how much accuracy the model losses by excluding each variable. The more the accuracy suffers, the more important the variable is for the successful classification. The variables are presented from descending importance.
+
+### 4.3.7 Summary and analysis
+
+The unpruned decision tree is the optimal model when aiming for a low MAPE, low AIC, and high r-squared. It is crucial to remember that when comparing the different models, the MAPE number is typically the same, hovering around 0.18 - 0.20, which denotes a 80-82 % accuracy. But all of the models' r-squared values are quite low, explaining about 7% to 15% of the variance in our dependent variable. As a result, this suggests that the models are neither thorough nor accurate fits.
+
+
+## 4.4 Tip Amount
+
+The subsequent step post preparing our data is to employ a number of regression-based methods to extract insights from data, which we can then use to predict which result is likely to hold true for our target variable based on training data.
+
+### 4.4.1 Principal component analysis
+
+We chose PCA as a variable reduction strategy because the majority of our variables were associated with one another and there were 48 features.
+
+```{r pca1,echo=FALSE}
+
+# get principal components using prcomp, we have used scale = F as the data is already scaled
+pr.out =prcomp(train[,-c(5,7)] %>% select_if(is.numeric), scale = F)
+summary(pr.out)
+
+fviz_eig(pr.out, addlabels = TRUE)
+
+```
+
+
+```{r,echo=FALSE}
+fviz_pca_var(pr.out,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
+```
+
+Variables graph. Variables that are positively associated point to the same side of the plot. Negatively associated variables point to the graph's opposing sides.
+
+**Observations:** Even if the components explain 94% of the variance in the data, that may not necessarily mean that a good R^2^ or high coefficients will result. Hence to investigate this, we evaluated this; we proceed to build out Linear regression mode.
+
+### 4.4.2 Linear regression
+
+From the results of the Principle component analysis, we constructed a linear model with tip amount along with the first three high variability explainers and correlated values for 'Tip_Amount': fare_amount (-0.29), trip_distance (-0.28), and trip_duration (-0.17).
+
+```{r Linear_Models1,echo=FALSE}
+#Taking best three variables correlated with tip amount based on Pearson Correlation
+
+#linear model of tip_amount ~ trip_duration
+fit1 <- lm(tip_amount ~ trip_duration, data = train )
+#summary(fit1)
+# vif(fit1)
+# plot(fit1)
+
+
+#linear model of tip_amount ~ trip_duration+fare_amount
+fit2 <- lm(tip_amount ~ trip_duration+fare_amount, data = train )
+#summary(fit2)
+# vif(fit2)
+# plot(fit2)
+
+
+#linear model of tip_amount ~ trip_duration+fare_amount+trip_distance
+fit3 <- lm(tip_amount ~ trip_duration+fare_amount+trip_distance, data = train )
+#summary(fit3)
+#vif(fit3)
+#plot(fit3)
+
+plot(fit1)
+plot(fit2)
+plot(fit3)
+```
+
+```{r AIC_of_Linear_Models1, echo=FALSE}
+#define list of models
+models <- list(fit1, fit2, fit3)
+
+#specify model names
+mod.names <- c('trip_duration.trip_duration.fare_amount.trip_distance', 'trip_duration.trip_duration.fare_amount', 'trip_duration.trip_duration')
+
+#calculate AIC of each model
+AIC <- aictab(cand.set = models, modnames = mod.names)
+
+```
+
+**ANOVA tests on all the three models**
+
+The summary for three linear models is:
+
+ Fit | Model Equation | R^2 | ANOVA P-value | AIC |  
+ ----|----------------------|-----|-----------|-----|  
+ 1   | tip_amount ~ trip_duration | `r format(summary(fit1)$r.squared, digits=3)` | -- | `r AIC[,3][1]` |
+ 2   | tip_amount ~ trip_duration+fare_amount |`r format(summary(fit2)$r.squared, digits=3)` | `r format(anova(fit1,fit2,fit3)[6][["Pr(>F)"]][2])` | `r AIC[,3][2]` |
+ 3   | tip_amount ~ trip_duration+fare_amount+trip_distance |`r format(summary(fit3)$r.squared, digits=3)` | `r format(anova(fit1,fit2,fit3)[6][["Pr(>F)"]][3], digits=3)` | `r AIC[,3][3]` |
+
+
+**Observations:** Looking at the combination of p-value and r-squared, we conclude that fit3 performs slightly better than the other two fits. Hence, we check if there is an improvement in model 3 in the absence of outliers.
+
+```{r, include=TRUE, echo=FALSE}
+#Prediction
+
+model.final.pred <- add_predictions(test,fit3)
+
+# Model performance metrics
+
+results_df <- rbind(results_df,data.frame(
+  technique = 'Linear(3 vars with best cor-coeffs)',
+  dependent = 'tip_amount',
+  mape = MAPE(model.final.pred$tip_amount, model.final.pred$pred),
+  Rsquare = caret::R2(model.final.pred$pred, model.final.pred$tip_amount),
+  AIC = AIC[,3][3]
+))
+results_df
+
+```
+
+**Treating Outliers and Modeling**
+
+```{r Removing_Outliers1, echo=FALSE}
+
+train_no <- train
+
+outlierKD2(train_no,var = trip_duration,boxplt = T,rm = T)
+outlierKD2(train_no,var = fare_amount,boxplt = T,rm = T)
+outlierKD2(train_no,var = trip_distance,boxplt = T, rm = T)
+
+model_no <- lm(tip_amount ~ trip_duration+fare_amount+trip_distance, data = train_no)
+
+summary(model_no)
+
+predictions <- predict(model_no, test)
+```
+
+```{r AIC_of_Linear_Models1 (NO), echo=FALSE}
+
+#define list of models
+models <- list(model_no)
+
+#specify model names
+mod.names <- c('Model 3 without outliers')
+
+#calculate AIC of each model
+AIC <- aictab(cand.set = models, modnames = mod.names)
+
+```
+
+```{r}
+# Model performance metrics
+results_df <- rbind(results_df, data.frame(
+  technique = "Linear-treated outlier",
+  dependent = "tip_amount",
+  mape = MAPE(test$tip_amount, predictions),
+  Rsquare = caret::R2(predictions, test$tip_amount),
+  AIC = AIC[,3]
+))
+results_df
+```
+
+Even after treating the outliers in our model three fit, There is little to no difference in the results, and the r-squared and MAPE values remains `r format(results_df[2, 4], digits=3)` and `r format(results_df[2, 3], digits=4)`.
+
+### 4.4.3 Lasso regression
+
+Lasso regression is a form of regularization (L1) approach that might result in coefficients that are canceled out (in other words, some of the features are completely neglected for the evaluation of output). As a result, it not only helps to reduce over-fitting, but it may also aid in feature selection.
+
+As we increase the value of lambda, the bias increase and  variance decrease, so we Iterated through a set of lambda values to find the optimum value. The graph below shows how lasso reduces the value of unnecessary attribute coefficients to 0. Only the five attributes with the greatest coefficient values are indicated for greater visibility.
+
+```{r lasso_tip_amount1, echo=FALSE}
+
+
+# Prep model parameters
+x=model.matrix(tip_amount~.-tip_amount-tip_perc-dropoff_time-pickup_time,train)[,-1]
+
+y = train %>%
+  select(tip_amount) %>%
+  unlist() %>%
+  as.numeric()
+
+# Find the best lambda using 10 cross-validation
+set.seed(123) 
+
+#Note that setting alpha equal to 0 is equivalent to using ridge regression and setting alpha to some value between 0 and 1 is equivalent to using an elastic net. 
+
+lasso_cv <- cv.glmnet(x, y, alpha = 1, standardize = FALSE)
+
+# Display the best lambda value
+best_alpha <- lasso_cv$lambda.min
+
+# Fit the final model on the training data
+lasso_model <- glmnet(x, y, alpha = 1, lambda = best_alpha, standardize = FALSE)
+
+# # Make predictions on the test data
+x.test <- model.matrix(tip_amount~.-tip_amount-tip_perc-dropoff_time-pickup_time, test)[,-1]
+predictions <- lasso_model %>% predict(x.test) %>% as.vector()
+
+#AIC 
+tLL <- lasso_model$nulldev - deviance(lasso_model)
+k <- lasso_model$df
+n <- lasso_model$nobs
+
+AICc <- -tLL+2*k+2*k*(k+1)/(n-k-1)
+
+
+# Model performance metrics
+results_df <- rbind(results_df, data.frame(
+  technique = "Lasso",
+  dependent = "tip_amount",
+  mape = MAPE(test$tip_amount, predictions),
+  Rsquare = caret::R2(predictions, test$tip_amount),
+  AIC = paste('*', AICc)
+))
+```
+
+```{r Lassocoeff1, results='markup',echo=FALSE}
+
+# Dsiplay regression coefficients
+coef(lasso_model)
+
+```
+
+
+```{r ,results='markup',echo=FALSE}
+fit.lasso <- glmnet(x, y, family="gaussian", alpha=1)
+plot_glmnet(fit.lasso, label=10)
+```
+
+As expected the *fare amount* survives the longest. However, it also surprising to see how long did the **Rate Code ID** prevails, especially for Newark Airport (code 3) which is understandable.
+
+```{r LassoMSE1 , results='markup',echo=FALSE}
+
+# Plot lambda CV
+plot(lasso_cv)
+
+```
+
+The lambda value that minimizes the test MSE turns out to be **`r lasso_cv$lambda.min`** .
+
+```{r LassoPredictions1, results='markup', echo=FALSE}
+# Plot predicted vs actual values
+ggplot(test, aes(x =test$tip_amount ,y = predictions)) +
+  geom_point() +
+  labs(title="Predicted vs Actual Values",
+       x="Actual Tip amount  ", y = "Predicted Tip amount")
+
+```
+
+As with before, the r-squared is only 11%, which means there is room for a lot improvement.
+
+
+### 4.4.4 Ridge regression
+
+The coefficients that best suit the data are discovered using the least squares approach. It should also determine the unbiased coefficients as a further requirement. Here, unbiased refers to the fact that OLS ignores the independent variables' relative importance. A given data set's coefficients are easily found. In other words, the lowest "Residual Sum of Squares (RSS)" can only be obtained from one set of betas. It therefore poses a question whether the model with the lowest RSS is actually the better model.
+
+In a sense, OLS offers the model with the highest variance and the lowest bias, and it gets more complex as the number of variables rises. Although it is stationary and never moves, we still want a model with little bias and little variance. This void can be filled by Ridge, which is also known as regularization. Since the ridge regression penalizes coefficients, the least effective ones in the estimation will "shrink" the quickest. In ridge regression, the lambda parameter (penalizing factor) can be adjusted to alter the model coefficients.
+
+Again, Only the five attributes with the greatest coefficient values are indicated for greater visibility.
+
+```{r ridge_tip_amount1, echo=FALSE}
+
+#reduced_train <- sample_n(train, 15000)
+#reduced_test <- sample_n(test, 15000)
+
+# Prep model parameters
+x=model.matrix(tip_amount~.-tip_amount-tip_perc-dropoff_time-pickup_time,train)[,-1]
+
+y = train %>%
+  select(tip_amount) %>%
+  unlist() %>%
+  as.numeric()
+
+# Find the best lambda using 10 cross-validation
+set.seed(123) 
+
+#Note that setting alpha equal to 0 is equivalent to using ridge regression and setting alpha to some value between 0 and 1 is equivalent to using an elastic net. 
+
+ridge_cv <- cv.glmnet(x, y, alpha = 0, standardize = FALSE)
+
+# Display the best lambda value
+best_alpha <- ridge_cv$lambda.min
+
+# Fit the final model on the training data
+ridge_model <- glmnet(x, y, alpha = 0, lambda = best_alpha, standardize = FALSE)
+
+# # Make predictions on the test data
+x.test <- model.matrix(tip_amount~.-tip_amount-tip_perc-dropoff_time-pickup_time, test)[,-1]
+predictions <- ridge_model %>% predict(x.test) %>% as.vector()
+
+#AIC 
+tLL <- ridge_model$nulldev - deviance(ridge_model)
+k <- ridge_model$df
+n <- ridge_model$nobs
+
+AICc <- -tLL+2*k+2*k*(k+1)/(n-k-1)
+
+
+# Model performance metrics
+results_df <- rbind(results_df, data.frame(
+  technique = "Ridge",
+  dependent = "tip_amount",
+  mape = MAPE(test$tip_amount, predictions),
+  Rsquare = caret::R2(predictions, test$tip_amount),
+  AIC = paste('*', AICc)
+))
+
+results_df
+```
+
+```{r Ridgecoeff1, results='markup',echo=FALSE}
+
+# Dsiplay regression coefficients
+coef(ridge_model)
+
+```
+
+```{r ,results='markup',echo=FALSE}
+fit.ridge <- glmnet(x, y, family="gaussian", alpha=0)
+plot_glmnet(fit.ridge, label=10)
+```
+
+**Observations: **The plot shows the whole path of variables as they shrink towards zero. The **Pick up** and the **Drop Off Location** survives the longest as they shrink to zero.
+
+```{r Ridgemse1, results='markup',echo=FALSE}
+
+colnames(train)
+
+# Plot lambda CV
+plot(ridge_cv)
+
+```
+
+The lambda value that minimizes the test MSE turns out to be **`r ridge_cv$lambda.min`** .
+
+```{r RidgePredictions1, results='markup', echo=FALSE}
+# Plot predicted vs actual values
+ggplot(test, aes(x =test$tip_amount ,y = predictions)) +
+  geom_point() +
+  labs(title="Predicted vs Actual Values",
+       x="Actual Tip Amount  ", y = "Predicted Tip Amount")
+
+```
+
+
+```{r plot_r2_ridge_ratio1, include=TRUE, echo= FALSE}
+# Plot graph for glmnet
+fit = glmnet(x, y, alpha = 0)
+plot(fit, xvar = "dev", label = TRUE)
+```
+
+The Plot shows that all the vairables explain ~11% (~0.108 point on the plot) of the variance in the data. Same is bolstered by the R^2^ value of the model.
+
+### 4.4.5 Decision tree
+
+The classification and regression tree (CART) methodology is one of the earliest methods for creating regression trees, however there are many more. A data set is divided into smaller subgroups by basic regression trees, which then fit a straightforward constant to each observation in each segment. By using successive binary partitions (also known as recursive partitioning) depending on several predictors, the partitioning is accomplished.
+
+**Cost complexity criterion**
+
+To enhance prediction performance on certain unknown data, a balance in the depth and complexity of the tree is generally required. To achieve this balance, we generally create a very big tree and then prune it back to identify an ideal subtree. We identify the best subtree by applying a cost complexity parameter (α) that penalizes our objective function for the number of terminal nodes in the tree.
+
+```{r Decision_tree1, results='markup',echo=FALSE}
+
+tip_amount_dt <- rpart(tip_amount ~ trip_distance + fare_amount  + tolls_amount + trip_duration + VendorID_1 
++ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + PULocation_Staten_Island + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens +  DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data=train, method='anova',cp = 0,)
+
+rpart.plot(tip_amount_dt,extra = 100,type = 1,snip = TRUE)
+```
+
+When we consider all the variables while building our decision tree, the model quickly becomes overfitted.
+
+```{r,echo=FALSE}
+plotcp(tip_amount_dt)
+abline(v = 12, lty = "dashed")
+```
+
+The above shows the compares the error over the range of α's (cost complexity - cp value at the bottom X-axis). The upper X-axis gives the number of nodes. We can see returns deminish after around 16 leafs (dashed vertical line.
+
+##### Pruned Decision Tree
+
+Pruning the decision tree to 16 variables gives a much better model as seen below.
+
+```{r Pruned_Tree1, results='markup',echo=FALSE}
+tip_amount_dt <- rpart(tip_amount ~ trip_distance + fare_amount + tolls_amount + trip_duration + VendorID_1 
++ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + PULocation_Staten_Island + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens +  DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data=train, method='anova')
+
+rpart.plot(tip_amount_dt,extra = 100,type = 1,snip = TRUE)
+```
+
+```{r,echo=FALSE}
+plotcp(tip_amount_dt)
+```
+
+
+```{r meterics1,echo=FALSE}
+
+# Original
+# Predict test values using tree
+tree_amount_pred = predict(tip_amount_dt, newdata = test)
+
+# Obtain MSE
+tree_amount_mse = (sum((tree_amount_pred - test$tip_amount)^2)) / nrow(test)
+
+# Print MSE
+tree_perc_mse
+
+# Obtain MAPE and r2
+mape_ratio = MAPE(test$tip_amount, tree_amount_pred)
+Rsquare_ratio = caret::R2(tree_amount_pred, test$tip_amount)
+
+# Model performance metrics
+results_df <- rbind(results_df, data.frame(
+  technique = "Decision Tree",
+  dependent = "tip_amount",
+  mape = mape_ratio,
+  Rsquare = Rsquare_ratio,
+  AIC = '-'
+))
+
+# Prune
+# Predict test values using tree
+tree_amount_pred_prune = predict(tip_amount_dt, newdata = test)
+
+# Obtain MSE
+tree_amount_mse_prune = (sum((tree_amount_pred_prune - test$tip_amount)^2)) / nrow(test)
+
+# Print MSE
+
+tree_amount_mse_prune
+
+# Obtain MAPE and r2
+mape_amount_prune = MAPE(test$tip_amount, tree_amount_pred_prune)
+Rsquare_amount_prune = caret::R2(tree_amount_pred_prune, test$tip_amount)
+
+# Model performance metrics
+results_df <- rbind(results_df, data.frame(
+  technique = "Decision Tree (Prune)",
+  dependent = "tip_amount",
+  mape = mape_amount_prune,
+  Rsquare = Rsquare_amount_prune,
+  AIC = '-'
+))
+
+xkabledply(results_df, title = 'Grand Summary of All Models')
+
+results_df
+
+```
+
+### 4.4.6 Random Forest
+
+Finally, we apply our last model to further obtained enhanced results. The Random Forest builds on top of the classical deccission tree by a method called **Bagging**
+
+```{r Random_Forest1, echo=FALSE}
+
+
+rf.fit <- randomForest(tip_amount ~  trip_distance + fare_amount + tolls_amount + trip_duration + VendorID_1 
++ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + PULocation_Staten_Island + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens + DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data = train, ntree=100,keep.forest=FALSE, importance=TRUE)
+
+rf.fit
+
+```
+
+
+```{r ploting1 results,echo=FALSE}
+ImpData <- as.data.frame(importance(rf.fit))
+ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +
+  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +
+  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +
+  theme_light() +
+  coord_flip() +
+  theme(
+    legend.position="bottom",
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+```
+
+
+Node purity is the total decrease in residual sum of squares when splitting on a variable averaged over all trees (i.e. how well a predictor decreases variance). Importance gives you what the model has learnt. The above plot shows, for each variable, how important it is in classifying the data. The Mean Decrease Accuracy plot expresses how much accuracy the model losses by excluding each variable. The more the accuracy suffers, the more important the variable is for the successful classification. The variables are presented from descending importance.
+
+### 4.3.7 Summary and analysis
+
+The unpruned decision tree is the optimal model when aiming for a low MAPE, low AIC, and high r-squared. It is crucial to remember that when comparing the different models, the MAPE number is typically the same, hovering around 0.18 - 0.20, which denotes a 80-82 % accuracy. But all of the models' r-squared values are quite low, explaining about 7% to 15% of the variance in our dependent variable. As a result, this suggests that the models are neither thorough nor accurate fits.
+
