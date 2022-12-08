@@ -361,7 +361,7 @@ As we increase the value of lambda, the bias increase and  variance decrease, so
 #reduced_test <- sample_n(test, 15000)
 
 # Prep model parameters
-x=model.matrix(tip_perc~.-tip_perc-dropoff_time-pickup_time,train)[,-1]
+x=model.matrix(tip_perc~.-tip_perc-tip_amount-dropoff_time-pickup_time,train)[,-1]
 
 y = train %>%
   select(tip_perc) %>%
@@ -383,7 +383,7 @@ best_alpha <- lasso_cv$lambda.min
 lasso_model <- glmnet(x, y, alpha = 1, lambda = best_alpha, standardize = FALSE)
 
 # # Make predictions on the test data
-x.test <- model.matrix(tip_perc~.-tip_perc-dropoff_time-pickup_time, test)[,-1]
+x.test <- model.matrix(tip_perc~.-tip_perc-tip_amount-dropoff_time-pickup_time, test)[,-1]
 predictions <- lasso_model %>% predict(x.test) %>% as.vector()
 
 #AIC 
@@ -409,6 +409,7 @@ results_df <- rbind(results_df, data.frame(
 # Dsiplay regression coefficients
 coef(lasso_model)
 
+results_df
 ```
 
 
@@ -454,7 +455,7 @@ Again, Only the five attributes with the greatest coefficient values are indicat
 #reduced_test <- sample_n(test, 15000)
 
 # Prep model parameters
-x=model.matrix(tip_perc~.-tip_perc-dropoff_time-pickup_time,train)[,-1]
+x=model.matrix(tip_perc~.-tip_perc-tip_amount-dropoff_time-pickup_time,train)[,-1]
 
 y = train %>%
   select(tip_perc) %>%
@@ -475,7 +476,7 @@ best_alpha <- ridge_cv$lambda.min
 ridge_model <- glmnet(x, y, alpha = 0, lambda = best_alpha, standardize = FALSE)
 
 # # Make predictions on the test data
-x.test <- model.matrix(tip_perc~.-tip_perc-dropoff_time-pickup_time, test)[,-1]
+x.test <- model.matrix(tip_perc~.-tip_perc-tip_amount-dropoff_time-pickup_time, test)[,-1]
 predictions <- ridge_model %>% predict(x.test) %>% as.vector()
 
 #AIC 
@@ -652,7 +653,7 @@ colnames(test)[colnames(train) == 'PULocation_Staten Island'] =  "PULocation_Sta
 colnames(test)[colnames(train) == 'DOLocation_Staten Island'] = "DOLocation_Staten_Island"
 
 rf.fit <- randomForest(tip_perc ~  trip_distance + fare_amount + tolls_amount + trip_duration + VendorID_1 
-+ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + PULocation_Staten_Island + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens + DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data = train, ntree=100,keep.forest=FALSE, importance=TRUE)
++ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + PULocation_Staten_Island + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens + DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data = train, ntree=10,keep.forest=FALSE, importance=TRUE)
 
 rf.fit
 
@@ -881,7 +882,7 @@ results_df <- rbind(results_df, data.frame(
   dependent = "tip_amount",
   mape = MAPE(test$tip_amount, predictions),
   Rsquare = caret::R2(predictions, test$tip_amount),
-  AIC = paste('*', AICc)
+  AIC = paste(AICc,'*')
 ))
 ```
 
@@ -973,7 +974,7 @@ results_df <- rbind(results_df, data.frame(
   dependent = "tip_amount",
   mape = MAPE(test$tip_amount, predictions),
   Rsquare = caret::R2(predictions, test$tip_amount),
-  AIC = paste('*', AICc)
+  AIC = paste( AICc,'*')
 ))
 
 results_df
@@ -1126,7 +1127,7 @@ Finally, we apply our last model to further obtained enhanced results. The Rando
 
 
 rf.fit <- randomForest(tip_amount ~  trip_distance + fare_amount + tolls_amount + trip_duration + VendorID_1 
-+ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + PULocation_Staten_Island + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens + DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data = train, ntree=100,keep.forest=FALSE, importance=TRUE)
++ VendorID_2 + passenger_count_1 + passenger_count_2 + passenger_count_3 + passenger_count_4 + passenger_count_5 + passenger_count_6 + RatecodeID_1 + RatecodeID_2 + RatecodeID_3 + RatecodeID_4 + RatecodeID_5 + PULocation_Bronx + PULocation_Brooklyn + PULocation_EWR + PULocation_Manhattan + PULocation_Queens + PULocation_Staten_Island + DOLocation_Bronx + DOLocation_Brooklyn +  DOLocation_EWR + DOLocation_Manhattan + DOLocation_Queens + DOLocation_Staten_Island + day_Fri + day_Mon + day_Sat + day_Sun + day_Thu + day_Tue + day_Wed + PU_time_of_day_Afternoon + PU_time_of_day_Evening + PU_time_of_day_Morning + PU_time_of_day_Night + DO_time_of_day_Afternoon + DO_time_of_day_Evening + DO_time_of_day_Morning + DO_time_of_day_Night, data = train, ntree=10,keep.forest=FALSE, importance=TRUE)
 
 rf.fit
 
@@ -1156,4 +1157,12 @@ Node purity is the total decrease in residual sum of squares when splitting on a
 ### 4.3.7 Summary and analysis
 
 The unpruned decision tree is the optimal model when aiming for a low MAPE, low AIC, and high r-squared. It is crucial to remember that when comparing the different models, the MAPE number is typically the same, hovering around 0.18 - 0.20, which denotes a 80-82 % accuracy. But all of the models' r-squared values are quite low, explaining about 7% to 15% of the variance in our dependent variable. As a result, this suggests that the models are neither thorough nor accurate fits.
+
+## 4.4 Model Summary and Results
+
+```{r results='markup', echo=FALSE}
+
+xkabledply(results_df, title = 'Model Results Across Variables')
+
+```
 
